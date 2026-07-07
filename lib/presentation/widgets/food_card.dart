@@ -108,6 +108,12 @@ class FoodCard extends StatelessWidget {
                           food.storageLocation,
                           Icons.kitchen_rounded,
                         ),
+                        const SizedBox(width: 6),
+                        _buildBadge(
+                          context,
+                          '${food.quantity} ${food.unit}',
+                          Icons.inventory_2_outlined,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),

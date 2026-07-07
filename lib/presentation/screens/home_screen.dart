@@ -217,6 +217,18 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     _buildDetailRow(
                       context, 
+                      'Tempat Penyimpanan:', 
+                      food.storageLocation
+                    ),
+                    const Divider(height: 20),
+                    _buildDetailRow(
+                      context, 
+                      'Jumlah / Kuantitas:', 
+                      '${food.quantity} ${food.unit}'
+                    ),
+                    const Divider(height: 20),
+                    _buildDetailRow(
+                      context, 
                       'Tanggal Masuk:', 
                       DateFormat('dd MMM yyyy').format(food.startDate)
                     ),
@@ -236,6 +248,12 @@ class HomeScreen extends ConsumerWidget {
                           : (diff == 0 ? 'Kedaluwarsa Hari Ini' : '$diff hari lagi'),
                       valueColor: isExpired ? Colors.redAccent : Colors.green,
                       isBold: true,
+                    ),
+                    const Divider(height: 20),
+                    _buildDetailRow(
+                      context, 
+                      'Catatan:', 
+                      food.notes != null && food.notes!.isNotEmpty ? food.notes! : 'Tidak ada catatan',
                     ),
                   ],
                 ),

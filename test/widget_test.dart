@@ -10,7 +10,7 @@ void main() {
 
   // Menginisialisasi dotenv kosong agar isSupabaseConfigured bernilai false 
   // dan menghindari pemanggilan Supabase.instance sebelum terinisialisasi
-  dotenv.testLoad(fileInput: '');
+  dotenv.loadFromString(envString: '');
 
   testWidgets('KapanBasi initial layout test', (WidgetTester tester) async {
     // Build our app and trigger a frame.

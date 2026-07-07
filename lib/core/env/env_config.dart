@@ -11,6 +11,9 @@ class EnvConfig {
   /// Anon Key Supabase untuk autentikasi client-side.
   static String get supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 
+  /// URL Backend kustom.
+  static String get backendUrl => dotenv.env['BACKEND_URL'] ?? 'http://localhost:5000';
+
   /// Menentukan apakah Supabase telah dikonfigurasi dengan benar.
   static bool get isSupabaseConfigured {
     return supabaseUrl.isNotEmpty && 

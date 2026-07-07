@@ -29,6 +29,7 @@ void main() async {
         url: EnvConfig.supabaseUrl,
         publishableKey: EnvConfig.supabaseAnonKey,
       );
+      
       isSupabaseConfigured = true;
     } catch (e) {
       debugPrint('Gagal menginisialisasi Supabase: $e');

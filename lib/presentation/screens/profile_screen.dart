@@ -14,6 +14,8 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Memantau foodsProvider untuk menampilkan statistik pantry dinamis secara terstruktur
     final foodsAsync = ref.watch(foodsProvider);
+    // Memantau userProfileProvider secara dinamis
+    final profileAsync = ref.watch(userProfileProvider);
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -21,29 +23,55 @@ class ProfileScreen extends ConsumerWidget {
         child: Column(
           children: [
             // 1. Bagian Info User / Avatar
-            const Center(
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: AppColors.primary,
-                    child: Text(
-                      'A',
-                      style: TextStyle(fontSize: 40, color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Abay',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'abay@kapanbasi.com',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
+            profileAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24.0),
+                  child: CircularProgressIndicator(),
+                ),
               ),
+              error: (err, stack) => const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24.0),
+                  child: Text('Gagal memuat profil', style: TextStyle(color: Colors.red)),
+                ),
+              ),
+              data: (profile) {
+                final fullName = profile?['full_name'] ?? 'Pengguna KapanBasi';
+                final email = profile?['email'] ?? '';
+                final avatarUrl = profile?['avatar_url'] as String?;
+                final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : 'P';
+
+                return Center(
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: AppColors.primary,
+                        backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                            ? NetworkImage(avatarUrl)
+                            : null,
+                        child: avatarUrl == null || avatarUrl.isEmpty
+                            ? Text(
+                                initial,
+                                style: const TextStyle(fontSize: 40, color: Colors.white, fontWeight: FontWeight.bold),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        fullName,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        email,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 32),
 

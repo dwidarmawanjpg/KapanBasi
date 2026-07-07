@@ -119,3 +119,48 @@ Standar yang wajib diselesaikan sesuai dengan arahan dan evaluasi proyek:
 3. **Dokumentasi & Standar Evaluasi Akademis:**
    * **BPMN (Business Process Model and Notation):** Menyiapkan diagram alur proses bisnis dari pencatatan barang hingga notifikasi kedaluwarsa.
    * **Basis Path Testing:** Melakukan perhitungan *Cyclomatic Complexity* pada fungsi logika penentu status kedaluwarsa untuk memastikan seluruh kemungkinan rute (belum basi vs. sudah basi) telah teruji.
+
+---
+
+## 7. Status Implementasi & Alur Teknis Terintegrasi (Implementation Status)
+
+Berikut adalah ringkasan teknis mengenai fitur dan konfigurasi yang telah berhasil diimplementasikan pada proyek KapanBasi:
+
+### A. Arsitektur Komunikasi Client-Server
+1. **Custom Express Backend:**
+   * Backend kustom berbasis Node.js/Express berjalan di port `5000` ([server.js](file:///C:/Users/Abay/OneDrive/Documents/KAPANBASI%20MOBILE/backend/server.js)).
+   * Bertindak sebagai API Gateway yang menjembatani aplikasi Flutter dengan Supabase.
+   * Menyediakan endpoint registrasi (`/api/auth/register`), masuk (`/api/auth/login`), profil (`/api/profile`), CRUD makanan (`/api/foods`), lokasi penyimpanan (`/api/storage-locations`), serta unggah berkas gambar (`/api/upload`).
+2. **Koneksi USB Debugging (ADB Port Reverse):**
+   * Agar aplikasi Flutter pada HP fisik dapat mengakses server backend di komputer lokal melalui koneksi USB, port forwarding dikonfigurasi menggunakan ADB:
+     ```powershell
+     adb reverse tcp:5000 tcp:5000
+     ```
+   * Konfigurasi URL API di file [.env](file:///C:/Users/Abay/OneDrive/Documents/KAPANBASI%20MOBILE/.env) menggunakan alamat `http://localhost:5000`.
+
+### B. Mekanisme Autentikasi & Sinkronisasi Sesi
+1. **Manual Session Recovery:**
+   * Token autentikasi (`access_token` dan `refresh_token`) yang dihasilkan oleh Supabase di sisi server backend dikirim kembali ke client Flutter.
+   * Di sisi Flutter, token disinkronkan secara manual menggunakan metode `setSession` dari SDK Supabase di file [auth_provider.dart](file:///C:/Users/Abay/OneDrive/Documents/KAPANBASI%20MOBILE/lib/presentation/providers/auth_provider.dart) agar SDK lokal tetap sinkron dan dapat melakukan request data:
+     ```dart
+     await Supabase.instance.client.auth.setSession(
+       refreshToken,
+       accessToken: accessToken,
+     );
+     ```
+2. **Reactive Auth State Monitoring:**
+   * Status login aplikasi (`isLoggedInProvider`) dikonfigurasi reaktif memantau stream `onAuthStateChange` dari Supabase:
+     ```dart
+     final subscription = client.auth.onAuthStateChange.listen((data) {
+       ref.read(isLoggedInProvider.notifier).state = data.session != null;
+     });
+     ```
+   * Ini memastikan perpindahan halaman otomatis (dari form Login/Register langsung ke Dashboard) berjalan lancar sesaat setelah token sesi berhasil disinkronkan pada proses registrasi maupun login.
+
+### C. Konfigurasi Basis Data & Keamanan Supabase
+1. **Sinkronisasi Otomatis Profil:**
+   * Mengimplementasikan trigger PostgreSQL `on_auth_user_created` di Supabase untuk menyalin data user baru secara otomatis dari `auth.users` ke tabel `public.profiles` saat registrasi sukses dilakukan.
+2. **Row Level Security (RLS) & Kebijakan (Policies):**
+   * Kebijakan keamanan tingkat baris diaktifkan secara ketat pada tabel `profiles` dan `foods` di database.
+   * Pengguna hanya diizinkan untuk melihat, menambah, mengubah, dan menghapus data yang dimiliki oleh ID mereka sendiri (`auth.uid() = user_id`).
+   * Supabase Storage (bucket `food-images`) dikonfigurasi dengan kebijakan unggah bagi pengguna terautentikasi dan akses baca publik untuk visualisasi gambar makanan.

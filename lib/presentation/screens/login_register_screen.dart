@@ -16,6 +16,7 @@ class LoginRegisterScreen extends ConsumerStatefulWidget {
 
 class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -26,6 +27,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
 
   @override
   void dispose() {
+    _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -60,6 +62,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
         await authService.register(
           _emailController.text.trim(),
           _passwordController.text,
+          _fullNameController.text.trim(),
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -160,6 +163,26 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 24),
+
+                        // Input Nama Lengkap (hanya untuk register)
+                        if (!_isLoginMode) ...[
+                          TextFormField(
+                            controller: _fullNameController,
+                            keyboardType: TextInputType.name,
+                            decoration: const InputDecoration(
+                              labelText: 'Nama Lengkap',
+                              hintText: 'Nama Lengkap Anda',
+                              prefixIcon: Icon(Icons.person_outline_rounded),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Harap masukkan nama lengkap';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
 
                         // Input Email
                         TextFormField(

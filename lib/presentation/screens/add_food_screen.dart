@@ -22,30 +22,63 @@ class AddFoodScreen extends ConsumerStatefulWidget {
 class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _quantityController = TextEditingController(text: '1');
+  final _notesController = TextEditingController();
 
-  String _selectedCategory = 'Makanan';
+  String _selectedCategory = 'Buah';
+  String _selectedStorageLocation = 'Kulkas Bawah';
+  String _selectedUnit = 'pcs';
   DateTime _selectedStartDate = DateTime.now();
   DateTime? _selectedExpiryDate;
   File? _imageFile;
 
   bool _isLoading = false;
 
-  final List<String> _categories = ['Makanan', 'Minuman'];
+  final List<String> _categories = [
+    'Buah',
+    'Sayur',
+    'Minuman',
+    'Susu & Olahan',
+    'Daging & Ikan',
+    'Makanan Instan',
+    'Bumbu Dapur',
+    'Lainnya'
+  ];
+
+  final List<String> _units = [
+    'pcs',
+    'kg',
+    'g',
+    'pack',
+    'liter',
+    'ml',
+    'botol'
+  ];
 
   @override
   void initState() {
     super.initState();
     if (widget.foodToEdit != null) {
       _nameController.text = widget.foodToEdit!.name;
-      _selectedCategory = widget.foodToEdit!.category;
+      _selectedCategory = _categories.contains(widget.foodToEdit!.category)
+          ? widget.foodToEdit!.category
+          : 'Lainnya';
+      _selectedStorageLocation = widget.foodToEdit!.storageLocation;
       _selectedStartDate = widget.foodToEdit!.startDate;
       _selectedExpiryDate = widget.foodToEdit!.expiryDate;
+      _quantityController.text = widget.foodToEdit!.quantity.toString();
+      _selectedUnit = _units.contains(widget.foodToEdit!.unit)
+          ? widget.foodToEdit!.unit
+          : 'pcs';
+      _notesController.text = widget.foodToEdit!.notes ?? '';
     }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _quantityController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -189,11 +222,14 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
         id: isEditing ? widget.foodToEdit!.id : UuidGenerator.generate(),
         name: _nameController.text.trim(),
         category: _selectedCategory,
-        storageLocation: 'Disimpan',
+        storageLocation: _selectedStorageLocation,
         startDate: _selectedStartDate,
         expiryDate: _selectedExpiryDate!,
         imageUrl: imageUrl ?? (isEditing ? widget.foodToEdit!.imageUrl : null),
         isConsumed: isEditing ? widget.foodToEdit!.isConsumed : false,
+        quantity: int.tryParse(_quantityController.text) ?? 1,
+        unit: _selectedUnit,
+        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       );
 
       // 3. Simpan ke database Supabase
@@ -239,6 +275,12 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
     final formattedExpiryDate = _selectedExpiryDate == null
         ? 'Pilih Tanggal'
         : DateFormat('dd MMM yyyy').format(_selectedExpiryDate!);
+
+    final storageLocationsAsync = ref.watch(storageLocationsProvider);
+    List<String> storageLocations = ['Kulkas Bawah', 'Freezer', 'Lemari Dapur', 'Meja Makan'];
+    if (storageLocationsAsync.hasValue && storageLocationsAsync.value != null) {
+      storageLocations = storageLocationsAsync.value!.map((loc) => loc['name'] as String).toList();
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -350,6 +392,121 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                               setState(() => _selectedCategory = value);
                             }
                           },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // C2. Tempat Penyimpanan
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tempat Penyimpanan',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          initialValue: storageLocations.contains(_selectedStorageLocation) ? _selectedStorageLocation : storageLocations.first,
+                          items: storageLocations
+                              .map((loc) => DropdownMenuItem(
+                                    value: loc,
+                                    child: Text(loc),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _selectedStorageLocation = value);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // C3. Jumlah & Satuan
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Jumlah Stok
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Jumlah Stok',
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _quantityController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  hintText: '1',
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Wajib diisi';
+                                  }
+                                  final num = int.tryParse(value);
+                                  if (num == null || num <= 0) {
+                                    return 'Harus > 0';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Satuan
+                        Expanded(
+                          flex: 3,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Satuan',
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              DropdownButtonFormField<String>(
+                                initialValue: _selectedUnit,
+                                items: _units
+                                    .map((unit) => DropdownMenuItem(
+                                          value: unit,
+                                          child: Text(unit),
+                                        ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() => _selectedUnit = value);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // C4. Catatan
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Catatan Tambahan',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _notesController,
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            hintText: 'Misal: Simpan di wadah kedap udara',
+                          ),
                         ),
                       ],
                     ),
