@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../core/constants/app_colors.dart';
+import '../../core/utils/food_status.dart';
 import '../../data/models/food_model.dart';
 
 /// Card Widget premium untuk menampilkan detail bahan makanan / produk.
@@ -13,45 +13,15 @@ class FoodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final expiry = DateTime(
-      food.expiryDate.year,
-      food.expiryDate.month,
-      food.expiryDate.day,
-    );
-    final differenceInDays = expiry.difference(today).inDays;
-
-    final bool isExpired = differenceInDays < 0;
-    final bool isNearExpiry = !isExpired && differenceInDays <= 3;
-
-    final Color statusColor = food.isConsumed
-        ? AppColors.riskNone
-        : isExpired
-        ? AppColors.riskHigh
-        : isNearExpiry
-        ? AppColors.riskMedium
-        : AppColors.riskLow;
+    // Status kesegaran disinkronkan lewat helper bersama: Aman / Kritis (<=7 hari) / Basi / Selesai
+    final statusInfo = getFoodStatus(food);
+    final Color statusColor = statusInfo.color;
+    final String statusText = statusInfo.label;
 
     // Format tanggal dibuat numerik agar ringkas dan tidak memakan ruang kartu.
     final String formattedExpiry = DateFormat(
       'dd/MM/yyyy',
     ).format(food.expiryDate);
-
-    String statusText;
-    if (food.isConsumed) {
-      statusText = 'Selesai';
-    } else if (isExpired) {
-      statusText = 'Basi';
-    } else if (differenceInDays == 0) {
-      statusText = 'Hari ini';
-    } else if (differenceInDays == 1) {
-      statusText = 'Besok';
-    } else if (isNearExpiry) {
-      statusText = '$differenceInDays hari';
-    } else {
-      statusText = 'Aman';
-    }
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

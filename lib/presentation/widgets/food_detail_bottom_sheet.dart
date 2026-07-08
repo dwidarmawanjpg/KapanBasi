@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/food_model.dart';
+import '../../core/utils/food_status.dart';
 import '../providers/foods_provider.dart';
 import '../screens/add_food_screen.dart';
 import '../../data/services/notification_service.dart';
@@ -28,18 +29,10 @@ class FoodDetailBottomSheet extends ConsumerWidget {
     final diff = expiry.difference(today).inDays;
     final bool isExpired = diff < 0;
 
-    Color statusColor;
-    String statusText;
-    if (food.isConsumed) {
-      statusColor = Colors.grey;
-      statusText = 'Selesai Dikonsumsi';
-    } else if (isExpired) {
-      statusColor = Theme.of(context).colorScheme.error;
-      statusText = 'Sudah Basi';
-    } else {
-      statusColor = Theme.of(context).colorScheme.primary;
-      statusText = 'Masih Aktif';
-    }
+    // Status kesegaran disinkronkan lewat helper bersama: Aman / Kritis (<=7 hari) / Basi / Selesai
+    final statusInfo = getFoodStatus(food);
+    final Color statusColor = statusInfo.color;
+    final String statusText = statusInfo.label;
 
     return Container(
       decoration: BoxDecoration(

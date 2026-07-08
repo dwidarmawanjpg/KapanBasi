@@ -6,6 +6,7 @@ import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'add_food_screen.dart';
 import 'history_screen.dart';
+import '../widgets/notification_bell_button.dart';
 
 // State Provider untuk melacak tab index aktif pada BottomNavigationBar
 final mainNavigationIndexProvider = StateProvider<int>((ref) => 0);
@@ -54,6 +55,9 @@ class MainLayout extends ConsumerWidget {
               size: 24,
             ),
           ),
+          // Tombol notifikasi kedaluwarsa - di kanan ikon awan
+          const NotificationBellButton(),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -98,7 +102,7 @@ class MainLayout extends ConsumerWidget {
 
       // Tombol FAB hanya muncul di tab Home (index 0)
       floatingActionButton: selectedIndex == 0
-          ? FloatingActionButton(
+          ? FloatingActionButton.extended(
               onPressed: () {
                 Navigator.push(
                   context,
@@ -110,7 +114,11 @@ class MainLayout extends ConsumerWidget {
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
               tooltip: 'Tambah Item',
-              child: const Icon(Icons.add_rounded, size: 28),
+              icon: const Icon(Icons.add_rounded, size: 22),
+              label: const Text(
+                'Tambah',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             )
           : null,
 
@@ -127,9 +135,9 @@ class MainLayout extends ConsumerWidget {
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history_rounded),
-            label: 'History',
+            icon: Icon(Icons.search_outlined),
+            selectedIcon: Icon(Icons.search_rounded),
+            label: 'Search',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

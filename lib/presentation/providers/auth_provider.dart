@@ -7,37 +7,43 @@ import 'foods_provider.dart';
 /// Provider reaktif untuk menyimpan status login pengguna (true/false)
 final StateProvider<bool> isLoggedInProvider = StateProvider<bool>((ref) {
   if (EnvConfig.isSupabaseConfigured) {
-    final client = Supabase.instance.client;
-
-    // Dengarkan perubahan status auth dari Supabase secara reaktif
-    final subscription = client.auth.onAuthStateChange.listen((data) {
-      ref.read(isLoggedInProvider.notifier).state = data.session != null;
-
-      // PENTING: Bersihkan cache provider yang menyimpan data milik pengguna
-      // (profil, daftar makanan) setiap kali ada pergantian sesi (login/register/
-      // logout). Tanpa ini, FutureProvider akan tetap menampilkan data pengguna
-      // SEBELUMNYA yang sudah ter-cache, sehingga pengguna baru bisa "melihat"
-      // akun/data milik pengguna lain di sesi yang sama.
-      if (data.event == AuthChangeEvent.signedIn ||
-          data.event == AuthChangeEvent.signedOut ||
-          data.event == AuthChangeEvent.initialSession) {
-        // Menggunakan ref.refresh() memastikan data diambil ulang dengan sesi
-        // yang baru meskipun UI (ProfileScreen) sedang tidak aktif di layar.
-        // Jika kita hanya invalidate(), cache memang terhapus, tapi refetch
-        // tertunda sampai ProfileScreen dibuka, dan bisa nyangkut status lamanya.
-        ref.refresh(userProfileProvider.future).ignore();
-        ref.refresh(foodsProvider.future).ignore();
-        ref.refresh(collectionFoodsProvider.future).ignore();
-      }
-    });
-
-    ref.onDispose(() {
-      subscription.cancel();
-    });
-
-    return client.auth.currentSession != null;
+    return Supabase.instance.client.auth.currentSession != null;
   }
   return false; // Default: belum login pada mode demo
+});
+
+/// Provider terpisah yang mendengarkan perubahan status auth Supabase
+/// dan memperbarui isLoggedInProvider dari luar (menghindari circular dependency).
+final authListenerProvider = Provider<void>((ref) {
+  if (!EnvConfig.isSupabaseConfigured) return;
+
+  final client = Supabase.instance.client;
+
+  // Dengarkan perubahan status auth dari Supabase secara reaktif
+  final subscription = client.auth.onAuthStateChange.listen((data) {
+    ref.read(isLoggedInProvider.notifier).state = data.session != null;
+
+    // PENTING: Bersihkan cache provider yang menyimpan data milik pengguna
+    // (profil, daftar makanan) setiap kali ada pergantian sesi (login/register/
+    // logout). Tanpa ini, FutureProvider akan tetap menampilkan data pengguna
+    // SEBELUMNYA yang sudah ter-cache, sehingga pengguna baru bisa "melihat"
+    // akun/data milik pengguna lain di sesi yang sama.
+    if (data.event == AuthChangeEvent.signedIn ||
+        data.event == AuthChangeEvent.signedOut ||
+        data.event == AuthChangeEvent.initialSession) {
+      // Menggunakan ref.refresh() memastikan data diambil ulang dengan sesi
+      // yang baru meskipun UI (ProfileScreen) sedang tidak aktif di layar.
+      // Jika kita hanya invalidate(), cache memang terhapus, tapi refetch
+      // tertunda sampai ProfileScreen dibuka, dan bisa nyangkut status lamanya.
+      ref.refresh(userProfileProvider.future).ignore();
+      ref.refresh(foodsProvider.future).ignore();
+      ref.refresh(collectionFoodsProvider.future).ignore();
+    }
+  });
+
+  ref.onDispose(() {
+    subscription.cancel();
+  });
 });
 
 /// Service class untuk mengelola alur login, registrasi, dan logout

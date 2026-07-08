@@ -1,21 +1,28 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:intl/intl.dart';
 
 import '../../data/models/food_model.dart';
 import '../providers/foods_provider.dart';
 import '../widgets/food_card.dart';
 import '../widgets/food_detail_bottom_sheet.dart';
+// (tanpa import main_layout.dart)
 
 /// Filter tab yang tersedia di halaman History.
-enum HistoryFilter { semua, aktif, basi, selesai }
+enum HistoryFilter { semua, aman, kritis, basi }
 
-/// Menentukan kolom tanggal mana yang dipakai saat memfilter rentang tanggal.
+/// Menyimpan filter status yang di-set dari luar (misal dari kartu statistik
+/// di Home) sebelum HistoryScreen sempat membaca & menerapkannya.
+final pendingHistoryFilterProvider = StateProvider<HistoryFilter?>(
+  (ref) => null,
+); 
+//Menentukan kolom tanggal mana yang dipakai saat memfilter rentang tanggal.
 enum DateFilterMode { tanggalMasuk, tanggalKedaluwarsa }
 
 /// Halaman History: menampilkan riwayat SELURUH barang yang pernah dicatat,
-/// baik yang masih aktif, sudah basi, maupun yang sudah ditandai "Selesai".
+/// baik yang masih kritis, sudah basi, maupun yang sudah ditandai "Selesai".
 /// Bersifat semi-immutable: hanya menyediakan aksi Hapus & Kembalikan ke Aktif (tanpa Edit).
 ///
 /// Filter tersedia dalam 2 tingkat:
@@ -39,6 +46,21 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   DateTimeRange? _selectedDateRange;
 
   @override
+  void initState() {
+    super.initState();
+    // Jika Home mengirim filter awal (misal dari tap kartu statistik),
+    // terapkan sekali lalu bersihkan providernya agar tidak "nyangkut"
+    // ketika pengguna kembali ke History secara normal lewat bottom nav.
+    final pendingFilter = ref.read(pendingHistoryFilterProvider);
+    if (pendingFilter != null) {
+      _selectedFilter = pendingFilter;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(pendingHistoryFilterProvider.notifier).state = null;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     _debounce?.cancel();
@@ -59,6 +81,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       (_selectedCategory != null ? 1 : 0) +
       (_selectedDateRange != null ? 1 : 0);
 
+  static const int _nearExpiryThresholdDays = 7;
+
   bool _isExpired(FoodModel food) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -68,6 +92,40 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       food.expiryDate.day,
     );
     return expiry.difference(today).inDays < 0;
+  }
+
+  /// Sisa hari menuju kedaluwarsa (bisa negatif jika sudah basi).
+  int _daysUntilExpiry(FoodModel food) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expiry = DateTime(
+      food.expiryDate.year,
+      food.expiryDate.month,
+      food.expiryDate.day,
+    );
+    return expiry.difference(today).inDays;
+  }
+
+  /// Kritis = belum kedaluwarsa, sisa waktu <= 7 hari.
+  bool _isCritical(FoodModel food) {
+    if (_isExpired(food)) return false;
+    final days = _daysUntilExpiry(food);
+    return days >= 0 && days <= _nearExpiryThresholdDays;
+  }
+
+  /// Aman = belum kedaluwarsa, sisa waktu > 7 hari.
+  bool _isSafe(FoodModel food) {
+    if (_isExpired(food)) return false;
+    return _daysUntilExpiry(food) > _nearExpiryThresholdDays;
+  }
+
+  /// Peringkat urgensi status untuk keperluan sorting: makin kecil angkanya,
+  /// makin mendesak, dan makin diprioritaskan tampil di paling atas.
+  /// 0 = Basi, 1 = Kritis, 2 = Aman.
+  int _urgencyRank(FoodModel food) {
+    if (_isExpired(food)) return 0;
+    if (_isCritical(food)) return 1;
+    return 2;
   }
 
   bool _matchesDateRange(FoodModel food) {
@@ -92,12 +150,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   List<FoodModel> _applyFilter(List<FoodModel> foods) {
-    // Riwayat diurutkan dari yang terbaru masuk (created_at descending, fallback ke startDate)
+    // Urutan tampil: prioritas urgensi dulu (Basi > Kritis > Selesai/Aman),
+    // baru di dalam grup yang sama diurutkan dari yang terbaru masuk
+    // (created_at descending, fallback ke startDate bila created_at kosong).
     final sorted = [...foods]
-      ..sort(
-        (a, b) =>
-            (b.createdAt ?? b.startDate).compareTo(a.createdAt ?? a.startDate),
-      );
+      ..sort((a, b) {
+        final urgencyCompare = _urgencyRank(a).compareTo(_urgencyRank(b));
+        if (urgencyCompare != 0) return urgencyCompare;
+        return (b.createdAt ?? b.startDate).compareTo(
+          a.createdAt ?? a.startDate,
+        );
+      });
 
     return sorted.where((food) {
       // 1. Filter status
@@ -106,15 +169,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         case HistoryFilter.semua:
           statusMatch = true;
           break;
-        case HistoryFilter.aktif:
-          statusMatch = !food.isConsumed && !_isExpired(food);
+        case HistoryFilter.aman:
+          statusMatch = _isSafe(food);
+          break;
+        case HistoryFilter.kritis:
+          statusMatch = _isCritical(food);
           break;
         case HistoryFilter.basi:
-          statusMatch = !food.isConsumed && _isExpired(food);
+          statusMatch = _isExpired(food);
           break;
-        case HistoryFilter.selesai:
-          statusMatch = food.isConsumed;
-          break;
+        
       }
       if (!statusMatch) return false;
 
@@ -360,7 +424,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  /// Menampilkan chip ringkasan filter lanjutan yang sedang aktif, dengan opsi hapus cepat.
+  /// Menampilkan chip ringkasan filter lanjutan yang sedang kritis, dengan opsi hapus cepat.
   Widget _buildActiveFilterChips() {
     final chips = <Widget>[];
 
@@ -407,12 +471,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     switch (filter) {
       case HistoryFilter.semua:
         return 'Semua';
-      case HistoryFilter.aktif:
-        return 'Aktif';
+      case HistoryFilter.aman:
+        return 'Aman';
+      case HistoryFilter.kritis:
+        return 'Kritis';
       case HistoryFilter.basi:
         return 'Basi';
-      case HistoryFilter.selesai:
-        return 'Selesai';
+      
     }
   }
 

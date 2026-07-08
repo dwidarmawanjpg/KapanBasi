@@ -137,67 +137,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
 
-            // ── 2. Statistik Pantry ─────────────────────────────────────
-            foodsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => const SizedBox.shrink(),
-              data: (foods) {
-                final now = DateTime.now();
-                final today = DateTime(now.year, now.month, now.day);
-                final total = foods.length;
-                final expired = foods.where((f) {
-                  final expiry = DateTime(
-                    f.expiryDate.year,
-                    f.expiryDate.month,
-                    f.expiryDate.day,
-                  );
-                  return expiry.difference(today).inDays < 0;
-                }).length;
-                final urgent = foods.where((f) {
-                  final expiry = DateTime(
-                    f.expiryDate.year,
-                    f.expiryDate.month,
-                    f.expiryDate.day,
-                  );
-                  final diff = expiry.difference(today).inDays;
-                  return diff >= 0 && diff <= 3;
-                }).length;
-                final safe = total - expired - urgent;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildStatItem(
-                        context,
-                        total.toString(),
-                        'Total',
-                        AppColors.primary,
-                      ),
-                      _buildStatItem(
-                        context,
-                        expired.toString(),
-                        'Basi',
-                        AppColors.riskHigh,
-                      ),
-                      _buildStatItem(
-                        context,
-                        urgent.toString(),
-                        'Kritis',
-                        AppColors.secondary,
-                      ),
-                      _buildStatItem(
-                        context,
-                        safe.toString(),
-                        'Aman',
-                        AppColors.riskLow,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+            
             const SizedBox(height: 28),
 
             // ── 3. Section: Preferensi ──────────────────────────────────
