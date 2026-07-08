@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD)
 **Proyek:** KapanBasi Mobile App  
 **Platform:** Android & iOS (Flutter)  
-**Versi Dokumen:** 1.2 (Pembaruan UI/UX, Lokasi Penyimpanan, Standar Pengujian & Database)  
+**Versi Dokumen:** 1.3 (Penambahan Modul Collection/Riwayat & Revisi Navigasi 3 Tab)  
 
 ---
 
@@ -29,13 +29,31 @@ Antarmuka pendaftaran dan masuk yang modern dengan jarak (*padding*) yang nyaman
 * **Halaman Register:** Input Nama Lengkap, Email, Password, Konfirmasi Password, dan tombol "Daftar".
 
 ### Modul 2: Beranda (Dashboard / Home)
-Pusat informasi utama dengan desain *card* yang menarik dan dinamis.
+Pusat informasi utama dengan desain *card* yang menarik dan dinamis. Halaman ini berfungsi sebagai **daftar kerja aktif** — hanya menampilkan barang yang masih perlu dipantau oleh pengguna.
 * **Daftar Inventaris:** Menampilkan Nama, Kategori, Tempat Penyimpanan, Gambar, dan Tanggal Kedaluwarsa.
+* **Filter Status (PENTING):** Home **hanya menampilkan item dengan `is_consumed = false`**, baik yang masih aman maupun yang sudah kedaluwarsa (basi). Begitu pengguna menandai item sebagai **"Selesai"** (`is_consumed = true`), item tersebut otomatis **hilang dari Home** dan berpindah menjadi riwayat di Modul Collection.
 * **Logika Pengurutan:** Data diurutkan secara *ascending* (tanggal kedaluwarsa terdekat di posisi teratas).
 * **Indikator Kedaluwarsa (PENTING):** 
   * Jika tanggal saat ini **belum melewati** `expiry_date`: Tampilkan sisa hari dengan warna aman (misal: hijau/teks biasa).
   * Jika tanggal saat ini **sudah melewati** `expiry_date`: Tampilkan *badge* atau teks peringatan visual mencolok (misal: label merah bertuliskan **"Sudah Basi!"** atau **"Kedaluwarsa"**).
-* **Navigasi Bawah:** *Bottom Navigation Bar* modern untuk berpindah ke modul Profil/Pengaturan.
+* **Navigasi Bawah:** *Bottom Navigation Bar* modern dengan 3 tab: **Home**, **Collection**, dan **Akun/Profil** (lihat Modul 2A dan Modul 4).
+
+### Modul 2A: Collection (Riwayat Barang) — *BARU*
+Halaman riwayat lengkap yang mencatat **seluruh barang yang pernah masuk**, tanpa memandang statusnya. Modul ini menjawab kebutuhan pengguna untuk melihat jejak/log seluruh aktivitas pencatatan bahan makanan, termasuk yang sudah ditandai selesai dikonsumsi.
+* **Cakupan Data:** Menampilkan semua item dari tabel `foods` milik pengguna (aktif, basi, maupun sudah `is_consumed = true`), diurutkan dari yang terbaru masuk (`created_at` descending).
+* **Filter Tab:** Tersedia filter cepat berupa tab: **Semua**, **Aktif** (belum basi & belum selesai), **Basi** (sudah lewat `expiry_date` & belum selesai), **Selesai** (`is_consumed = true`).
+* **Aksi yang Diizinkan (Prinsip Riwayat Semi-Immutable):**
+  * **Hapus:** Pengguna dapat menghapus entri riwayat yang tidak relevan/salah input.
+  * **Kembalikan ke Aktif:** Untuk item yang sudah ditandai "Selesai" secara tidak sengaja, pengguna dapat mengembalikan status `is_consumed` menjadi `false` sehingga item kembali muncul di Home.
+  * **Tidak Ada Edit Penuh:** Collection tidak menyediakan form edit detail (nama, kategori, tanggal, dll). Jika pengguna ingin mengubah detail, item harus dikembalikan ke status Aktif terlebih dahulu lalu diedit melalui Home. Ini memastikan hanya ada satu sumber edit data yang sah.
+* **Pencarian & Filter Bertingkat (mengantisipasi data yang terus bertambah):**
+  * **Search bar** (selalu terlihat di atas): mencari berdasarkan nama bahan makanan, menggunakan *debounce* ±300ms agar tidak membebani performa saat mengetik.
+  * **Filter status** (chip, selalu terlihat): Semua/Aktif/Basi/Selesai — dipertahankan sebagai chip karena jumlah opsinya sedikit dan sering dipakai (1 tap langsung pilih).
+  * **Filter lanjutan** (disembunyikan di ikon Filter/*bottom sheet*, karena lebih jarang dipakai):
+    * **Kategori**: opsi diambil dinamis dari kategori yang benar-benar ada di data pengguna (bukan daftar statis).
+    * **Rentang tanggal**: pengguna dapat memilih basis filter (Tanggal Masuk atau Tanggal Kedaluwarsa) lalu memilih rentang tanggal melalui *date range picker*.
+  * **Kombinasi filter**: seluruh filter (keyword, status, kategori, rentang tanggal) digabungkan secara **AND** (saling mempersempit hasil).
+  * **Catatan skalabilitas**: filtering saat ini dilakukan di sisi klien (*client-side*) karena data bersifat per-pengguna dan volumenya wajar untuk pantry pribadi. Jika ke depannya volume data membesar signifikan, filtering & pencarian sebaiknya dipindah ke query backend (parameter pada `/api/foods`) beserta paginasi — dicatat sebagai potensi optimasi lanjutan, belum diperlukan saat ini.
 
 ### Modul 3: Formulir Pencatatan (Tambah Bahan Makanan)
 Halaman input data dengan *layout* yang rapi menggunakan `Expanded` pada elemen yang sejajar agar tidak terjadi *overflow*.
@@ -50,13 +68,33 @@ Halaman input data dengan *layout* yang rapi menggunakan `Expanded` pada elemen 
 * **Input Catatan:** Area teks multiline untuk catatan tambahan.
 * **Aksi:** Tombol "Simpan Bahan Makanan" dengan desain *rounded* yang menarik.
 
+### Modul 3A: Smart Expiry Suggestion (Rencana / On-Hold)
+Fitur ini masih berupa rencana pengembangan dan **belum final**, memerlukan koordinasi lebih lanjut sebelum diimplementasikan. Latar belakangnya: pengguna sering kesulitan menentukan estimasi tanggal kedaluwarsa saat mencatat banyak bahan makanan sekaligus (contoh: tempe dan sayur umumnya bertahan sekitar 3 hari). Rencana fitur:
+* Saran otomatis `expiry_date` berdasarkan kategori dan/atau nama bahan spesifik, dihitung dari Tanggal Masuk.
+* Saran bersifat *default* yang tetap dapat diubah manual oleh pengguna (bukan nilai wajib/terkunci).
+* Sumber data referensi masa simpan (per kategori atau per item) masih perlu ditentukan lebih lanjut.
+* **Status: Belum dikerjakan.** Dicatat di PRD sebagai kebutuhan masa depan agar tidak hilang dari cakupan proyek.
+
 ### Modul 4: Profil & Pengaturan (Settings)
 Halaman kontrol pengguna dengan tata letak yang bersih dan profesional.
-* **Informasi Akun:** Menampilkan foto profil (*avatar*), nama, dan email pengguna.
-* **Menu Pengaturan:** 
-  * Preferensi UI (misal: pengaturan notifikasi atau tema aplikasi).
-  * Manajemen Data (opsi pengelolaan akun).
-* **Aksi:** Tombol "Logout" / Keluar yang jelas.
+* **Kartu Informasi Akun:** Menampilkan foto profil (*avatar*), nama lengkap, dan email pengguna secara dinamis dari database. Dilengkapi tombol **"Edit Profil"** yang mengarah ke halaman terpisah.
+* **Edit Profil (`edit_profile_screen.dart`):**
+  * Mengubah **nama lengkap** pengguna (validasi minimal 2 karakter).
+  * Mengunggah **foto avatar** baru dari kamera atau galeri, memanfaatkan endpoint `POST /api/upload` dan bucket `food-images` yang sama dengan gambar makanan. Perubahan disimpan ke tabel `public.profiles` via endpoint `PUT /api/profile`.
+  * Email bersifat *read-only* — tidak dapat diubah dari sini karena terikat dengan sistem autentikasi Supabase.
+* **Statistik Pantry Real-Time:** Menampilkan 4 angka (Total / Basi / Kritis ≤3 hari / Aman) yang dihitung langsung dari `foodsProvider` tanpa request tambahan.
+* **Preferensi UI:**
+  * **Tema Aplikasi:** Pilihan Terang / Gelap / Ikuti Sistem via dialog radio button. Pilihan disimpan permanen di `SharedPreferences` dan diterapkan secara reaktif ke seluruh aplikasi melalui `themeModeProvider`.
+  * **Pengingat Harian:** Toggle aktif/nonaktif + pengatur jam via `TimePicker`. Saat aktif, menjadwalkan notifikasi lokal berulang setiap hari menggunakan `flutter_local_notifications`. Isi notifikasi diperbarui otomatis setiap kali `foodsProvider` selesai memuat data (menampilkan jumlah item basi/kritis terkini). Preferensi disimpan di `SharedPreferences`.
+* **Manajemen Akun:**
+  * **Ganti Password (`change_password_screen.dart`):** Form password baru + konfirmasi (minimal 6 karakter), dikirim ke endpoint `PUT /api/profile/password`.
+  * **Bantuan & Dukungan:** Dialog FAQ statis yang menjawab pertanyaan umum tentang cara pakai aplikasi.
+* **Aksi Logout:** Konfirmasi dialog → batalkan semua notifikasi aktif → panggil `AuthService.logout()` → kembali ke layar Login.
+* **Arsitektur Notifikasi:**
+  * Notifikasi dijadwalkan **lokal di perangkat** (`flutter_local_notifications` + `timezone`) tanpa server push.
+  * **Pengingat harian:** Dijadwalkan ulang (*reschedule*) setiap kali `foodsProvider` berhasil memuat data agar konten mencerminkan kondisi pantry terkini. Ini menggantikan notifikasi harian sebelumnya dengan versi baru yang memiliki hitungan item akurat.
+  * **Notifikasi per-item:** Dijadwalkan otomatis saat item ditambah/diedit (`add_food_screen`), dan dibatalkan saat item dihapus atau ditandai selesai (`home_screen`, `collection_screen`). Item yang dikembalikan ke aktif akan dijadwalkan ulang notifikasinya.
+  * Preferensi pengingat (aktif/nonaktif + jam) dimuat dari `SharedPreferences` sebelum `runApp()` dan di-*override* ke Riverpod `ProviderScope` agar state awal konsisten.
 
 ---
 
@@ -164,3 +202,17 @@ Berikut adalah ringkasan teknis mengenai fitur dan konfigurasi yang telah berhas
    * Kebijakan keamanan tingkat baris diaktifkan secara ketat pada tabel `profiles` dan `foods` di database.
    * Pengguna hanya diizinkan untuk melihat, menambah, mengubah, dan menghapus data yang dimiliki oleh ID mereka sendiri (`auth.uid() = user_id`).
    * Supabase Storage (bucket `food-images`) dikonfigurasi dengan kebijakan unggah bagi pengguna terautentikasi dan akses baca publik untuk visualisasi gambar makanan.
+
+### D. Status Modul Collection (Riwayat) — v1.3
+1. Kolom `is_consumed` pada tabel `foods` sudah tersedia sejak skema awal, namun sebelumnya hanya difungsikan sebagai filter tersembunyi di Home (item `is_consumed = true` disaring keluar oleh `SupabaseService.getFoods()`), tanpa ada halaman riwayat yang menampilkannya kembali.
+2. Ditambahkan method `SupabaseService.getAllFoods()` yang mengambil seluruh data tanpa filter, digunakan khusus oleh halaman Collection.
+3. Navigasi Bottom Bar diperluas dari 2 tab (Home, Profile) menjadi 3 tab (Home, Collection, Akun) sesuai keputusan pada sesi diskusi PRD v1.3.
+
+### E. Status Modul Profil & Notifikasi — v1.4
+1. **Edit Profil:** Halaman `edit_profile_screen.dart` memungkinkan pengguna mengganti nama dan foto profil. Avatar diunggah via `POST /api/upload` (bucket `food-images`) dan profil diperbarui via endpoint baru `PUT /api/profile`.
+2. **Ganti Password:** Halaman `change_password_screen.dart` mengirim permintaan ke endpoint baru `PUT /api/profile/password`, yang meneruskan panggilan ke `supabase.auth.updateUser()`.
+3. **Toggle Tema:** `themeModeProvider` (Riverpod) di-persist di `SharedPreferences`. `MaterialApp` mengonsumsi provider ini secara reaktif sehingga tema berubah tanpa restart aplikasi.
+4. **Notifikasi Lokal:** `NotificationService` (singleton) mengelola dua jenis notifikasi via `flutter_local_notifications`:
+   - *Pengingat harian* — dijadwalkan ulang setiap kali `foodsProvider` selesai memuat data agar isinya mencerminkan kondisi pantry terkini.
+   - *Notifikasi per-item* — dijadwalkan saat item ditambah/diedit, dan dibatalkan saat item dihapus/selesai dikonsumsi.
+5. **Persistensi Pengaturan:** Semua preferensi (tema, pengingat aktif/nonaktif, jam pengingat) dimuat dari `SharedPreferences` sebelum `runApp()` melalui `AppSettingsSnapshot.load()` dan di-*override* ke `ProviderScope`.

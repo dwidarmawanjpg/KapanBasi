@@ -5,6 +5,7 @@ import '../../data/models/food_model.dart';
 import '../providers/foods_provider.dart';
 import '../widgets/food_card.dart';
 import 'add_food_screen.dart';
+import '../../data/services/notification_service.dart';
 
 /// Screen utama untuk menampilkan daftar bahan makanan yang dipantau.
 /// Menggunakan Riverpod foodsProvider untuk fetching data secara terstruktur (Clean Architecture).
@@ -33,12 +34,15 @@ class HomeScreen extends ConsumerWidget {
                 SizedBox(height: 16),
                 Text(
                   'Mengambil data makanan...',
-                  style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
           ),
-          
+
           // 2. Error State
           error: (error, stackTrace) => Center(
             child: SingleChildScrollView(
@@ -56,8 +60,8 @@ class HomeScreen extends ConsumerWidget {
                   Text(
                     'Ups, Gagal Memuat Data',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
@@ -70,7 +74,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
           ),
-          
+
           // 3. Success State (Menampilkan daftar makanan atau Empty State)
           data: (foods) {
             if (foods.isEmpty) {
@@ -88,7 +92,9 @@ class HomeScreen extends ConsumerWidget {
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -100,9 +106,8 @@ class HomeScreen extends ConsumerWidget {
                             const SizedBox(height: 24),
                             Text(
                               'Pantry Anda Kosong',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
@@ -140,7 +145,11 @@ class HomeScreen extends ConsumerWidget {
   }
 
   /// Menampilkan bottom sheet interaktif berisi detail, edit, tandai selesai, dan hapus item
-  void _showFoodDetailBottomSheet(BuildContext context, WidgetRef ref, FoodModel food) {
+  void _showFoodDetailBottomSheet(
+    BuildContext context,
+    WidgetRef ref,
+    FoodModel food,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -148,7 +157,11 @@ class HomeScreen extends ConsumerWidget {
       builder: (context) {
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        final expiry = DateTime(food.expiryDate.year, food.expiryDate.month, food.expiryDate.day);
+        final expiry = DateTime(
+          food.expiryDate.year,
+          food.expiryDate.month,
+          food.expiryDate.day,
+        );
         final diff = expiry.difference(today).inDays;
         final bool isExpired = diff < 0;
 
@@ -179,8 +192,8 @@ class HomeScreen extends ConsumerWidget {
               Text(
                 food.name,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
@@ -188,9 +201,14 @@ class HomeScreen extends ConsumerWidget {
               // Category Badge
               Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -216,44 +234,48 @@ class HomeScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     _buildDetailRow(
-                      context, 
-                      'Tempat Penyimpanan:', 
-                      food.storageLocation
+                      context,
+                      'Tempat Penyimpanan:',
+                      food.storageLocation,
                     ),
                     const Divider(height: 20),
                     _buildDetailRow(
-                      context, 
-                      'Jumlah / Kuantitas:', 
-                      '${food.quantity} ${food.unit}'
+                      context,
+                      'Jumlah / Kuantitas:',
+                      '${food.quantity} ${food.unit}',
                     ),
                     const Divider(height: 20),
                     _buildDetailRow(
-                      context, 
-                      'Tanggal Masuk:', 
-                      DateFormat('dd MMM yyyy').format(food.startDate)
+                      context,
+                      'Tanggal Masuk:',
+                      DateFormat('dd MMM yyyy').format(food.startDate),
                     ),
                     const Divider(height: 20),
                     _buildDetailRow(
-                      context, 
-                      'Tanggal Kedaluwarsa:', 
+                      context,
+                      'Tanggal Kedaluwarsa:',
                       DateFormat('dd MMM yyyy').format(food.expiryDate),
                       valueColor: isExpired ? Colors.redAccent : Colors.green,
                     ),
                     const Divider(height: 20),
                     _buildDetailRow(
-                      context, 
-                      'Status Masa Aktif:', 
-                      isExpired 
-                          ? 'Sudah Basi (${diff.abs()} hari lalu)' 
-                          : (diff == 0 ? 'Kedaluwarsa Hari Ini' : '$diff hari lagi'),
+                      context,
+                      'Status Masa Aktif:',
+                      isExpired
+                          ? 'Sudah Basi (${diff.abs()} hari lalu)'
+                          : (diff == 0
+                                ? 'Kedaluwarsa Hari Ini'
+                                : '$diff hari lagi'),
                       valueColor: isExpired ? Colors.redAccent : Colors.green,
                       isBold: true,
                     ),
                     const Divider(height: 20),
                     _buildDetailRow(
-                      context, 
-                      'Catatan:', 
-                      food.notes != null && food.notes!.isNotEmpty ? food.notes! : 'Tidak ada catatan',
+                      context,
+                      'Catatan:',
+                      food.notes != null && food.notes!.isNotEmpty
+                          ? food.notes!
+                          : 'Tidak ada catatan',
                     ),
                   ],
                 ),
@@ -271,13 +293,16 @@ class HomeScreen extends ConsumerWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => AddFoodScreen(foodToEdit: food),
+                            builder: (context) =>
+                                AddFoodScreen(foodToEdit: food),
                           ),
                         );
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       icon: const Icon(Icons.edit_rounded, size: 20),
                       label: const Text('Edit'),
@@ -290,12 +315,16 @@ class HomeScreen extends ConsumerWidget {
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         Navigator.pop(context); // Tutup bottom sheet
-                        
+
                         try {
                           final updatedFood = food.copyWith(isConsumed: true);
-                          await ref.read(supabaseServiceProvider).updateFood(updatedFood);
+                          await ref
+                              .read(supabaseServiceProvider)
+                              .updateFood(updatedFood);
+                          await NotificationService()
+                              .cancelFoodExpiryNotification(food.id);
                           ref.invalidate(foodsProvider);
-                          
+
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -321,26 +350,34 @@ class HomeScreen extends ConsumerWidget {
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 0,
                       ),
-                      icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
+                      icon: const Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 20,
+                      ),
                       label: const Text('Selesai'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              
+
               // Hapus Button
               TextButton.icon(
                 onPressed: () async {
                   Navigator.pop(context); // Tutup bottom sheet
-                  
+
                   try {
                     await ref.read(supabaseServiceProvider).deleteFood(food.id);
+                    await NotificationService().cancelFoodExpiryNotification(
+                      food.id,
+                    );
                     ref.invalidate(foodsProvider);
-                    
+
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -377,10 +414,10 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _buildDetailRow(
-    BuildContext context, 
-    String label, 
+    BuildContext context,
+    String label,
     String value, {
-    Color? valueColor, 
+    Color? valueColor,
     bool isBold = false,
   }) {
     return Row(
@@ -388,14 +425,16 @@ class HomeScreen extends ConsumerWidget {
       children: [
         Text(
           label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
         ),
         Text(
           value,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                color: valueColor ?? Theme.of(context).colorScheme.onSurface,
-              ),
+            fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+            color: valueColor ?? Theme.of(context).colorScheme.onSurface,
+          ),
         ),
       ],
     );

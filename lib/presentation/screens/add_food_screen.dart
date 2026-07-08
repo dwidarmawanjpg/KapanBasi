@@ -8,6 +8,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/uuid_generator.dart';
 import '../../data/models/food_model.dart';
 import '../providers/foods_provider.dart';
+import '../../data/services/notification_service.dart';
 
 /// Halaman untuk menambahkan bahan makanan baru ke Pantry (Mock API / Supabase).
 /// Dilengkapi dengan form kategori, lokasi penyimpanan, dan date picker ganda.
@@ -42,7 +43,7 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
     'Daging & Ikan',
     'Makanan Instan',
     'Bumbu Dapur',
-    'Lainnya'
+    'Lainnya',
   ];
 
   final List<String> _units = [
@@ -52,7 +53,7 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
     'pack',
     'liter',
     'ml',
-    'botol'
+    'botol',
   ];
 
   @override
@@ -214,7 +215,10 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
       // 1. Unggah gambar ke Supabase Storage jika ada foto baru
       if (_imageFile != null) {
         final uniqueFileName = '${UuidGenerator.generate()}.jpg';
-        imageUrl = await supabaseService.uploadImage(_imageFile!.path, uniqueFileName);
+        imageUrl = await supabaseService.uploadImage(
+          _imageFile!.path,
+          uniqueFileName,
+        );
       }
 
       // 2. Buat objek FoodModel baru/update
@@ -229,7 +233,9 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
         isConsumed: isEditing ? widget.foodToEdit!.isConsumed : false,
         quantity: int.tryParse(_quantityController.text) ?? 1,
         unit: _selectedUnit,
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
       );
 
       // 3. Simpan ke database Supabase
@@ -239,18 +245,29 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
         await supabaseService.insertFood(foodItem);
       }
 
+      // Batalkan notif lama jika edit, lalu jadwalkan ulang sesuai tanggal baru
+      await NotificationService().cancelFoodExpiryNotification(foodItem.id);
+      await NotificationService().scheduleFoodExpiryNotification(foodItem);
+
       // Invalidate foodsProvider secara reaktif agar beranda & statistik terupdate otomatis
       ref.invalidate(foodsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isEditing ? 'Perubahan berhasil disimpan!' : 'Item berhasil disimpan ke Supabase!'),
+            content: Text(
+              isEditing
+                  ? 'Perubahan berhasil disimpan!'
+                  : 'Item berhasil disimpan ke Supabase!',
+            ),
             behavior: SnackBarBehavior.floating,
             backgroundColor: AppColors.riskLow,
           ),
         );
-        Navigator.pop(context, true); // Kirim sinyal sukses kembali ke layar utama
+        Navigator.pop(
+          context,
+          true,
+        ); // Kirim sinyal sukses kembali ke layar utama
       }
     } catch (e) {
       if (mounted) {
@@ -271,15 +288,24 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final formattedStartDate = DateFormat('dd MMM yyyy').format(_selectedStartDate);
+    final formattedStartDate = DateFormat(
+      'dd MMM yyyy',
+    ).format(_selectedStartDate);
     final formattedExpiryDate = _selectedExpiryDate == null
         ? 'Pilih Tanggal'
         : DateFormat('dd MMM yyyy').format(_selectedExpiryDate!);
 
     final storageLocationsAsync = ref.watch(storageLocationsProvider);
-    List<String> storageLocations = ['Kulkas Bawah', 'Freezer', 'Lemari Dapur', 'Meja Makan'];
+    List<String> storageLocations = [
+      'Kulkas Bawah',
+      'Freezer',
+      'Lemari Dapur',
+      'Meja Makan',
+    ];
     if (storageLocationsAsync.hasValue && storageLocationsAsync.value != null) {
-      storageLocations = storageLocationsAsync.value!.map((loc) => loc['name'] as String).toList();
+      storageLocations = storageLocationsAsync.value!
+          .map((loc) => loc['name'] as String)
+          .toList();
     }
 
     return Scaffold(
@@ -315,36 +341,51 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                           decoration: BoxDecoration(
                             color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outline.withValues(alpha: 0.3),
+                            ),
                           ),
                           child: _imageFile != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(16),
-                                  child: Image.file(_imageFile!, fit: BoxFit.cover),
+                                  child: Image.file(
+                                    _imageFile!,
+                                    fit: BoxFit.cover,
+                                  ),
                                 )
-                              : (widget.foodToEdit?.imageUrl != null && widget.foodToEdit!.imageUrl!.isNotEmpty)
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: Image.network(widget.foodToEdit!.imageUrl!, fit: BoxFit.cover),
-                                    )
-                                  : Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.camera_alt_outlined,
-                                          size: 48,
-                                          color: Theme.of(context).colorScheme.primary,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Ambil Foto Makanan (Opsional)',
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.primary,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
+                              : (widget.foodToEdit?.imageUrl != null &&
+                                    widget.foodToEdit!.imageUrl!.isNotEmpty)
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Image.network(
+                                    widget.foodToEdit!.imageUrl!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.camera_alt_outlined,
+                                      size: 48,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Ambil Foto Makanan (Opsional)',
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
                     ),
@@ -353,7 +394,9 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                     // B. Input Nama Makanan
                     Text(
                       'Nama Makanan / Minuman',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
@@ -376,16 +419,19 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                       children: [
                         Text(
                           'Kategori',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
                           initialValue: _selectedCategory,
                           items: _categories
-                              .map((category) => DropdownMenuItem(
-                                    value: category,
-                                    child: Text(category),
-                                  ))
+                              .map(
+                                (category) => DropdownMenuItem(
+                                  value: category,
+                                  child: Text(category),
+                                ),
+                              )
                               .toList(),
                           onChanged: (value) {
                             if (value != null) {
@@ -403,16 +449,24 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                       children: [
                         Text(
                           'Tempat Penyimpanan',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
-                          initialValue: storageLocations.contains(_selectedStorageLocation) ? _selectedStorageLocation : storageLocations.first,
+                          initialValue:
+                              storageLocations.contains(
+                                _selectedStorageLocation,
+                              )
+                              ? _selectedStorageLocation
+                              : storageLocations.first,
                           items: storageLocations
-                              .map((loc) => DropdownMenuItem(
-                                    value: loc,
-                                    child: Text(loc),
-                                  ))
+                              .map(
+                                (loc) => DropdownMenuItem(
+                                  value: loc,
+                                  child: Text(loc),
+                                ),
+                              )
                               .toList(),
                           onChanged: (value) {
                             if (value != null) {
@@ -436,7 +490,8 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                             children: [
                               Text(
                                 'Jumlah Stok',
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
                               TextFormField(
@@ -468,16 +523,19 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                             children: [
                               Text(
                                 'Satuan',
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
                                 initialValue: _selectedUnit,
                                 items: _units
-                                    .map((unit) => DropdownMenuItem(
-                                          value: unit,
-                                          child: Text(unit),
-                                        ))
+                                    .map(
+                                      (unit) => DropdownMenuItem(
+                                        value: unit,
+                                        child: Text(unit),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: (value) {
                                   if (value != null) {
@@ -498,7 +556,8 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                       children: [
                         Text(
                           'Catatan Tambahan',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         TextFormField(
@@ -523,26 +582,40 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                             children: [
                               Text(
                                 'Tanggal Masuk',
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
                               GestureDetector(
                                 onTap: _selectStartDate,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 16,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surface,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
+                                    border: Border.all(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .outline
+                                          .withValues(alpha: 0.3),
+                                    ),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
                                           formattedStartDate,
                                           style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurface,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
                                             fontSize: 14,
                                           ),
                                           overflow: TextOverflow.ellipsis,
@@ -551,7 +624,9 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                                       Icon(
                                         Icons.calendar_today_rounded,
                                         size: 16,
-                                        color: Theme.of(context).colorScheme.primary,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                       ),
                                     ],
                                   ),
@@ -568,28 +643,45 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                             children: [
                               Text(
                                 'Kedaluwarsa',
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
                               GestureDetector(
                                 onTap: _selectExpiryDate,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 16,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surface,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3)),
+                                    border: Border.all(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .outline
+                                          .withValues(alpha: 0.3),
+                                    ),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
                                           formattedExpiryDate,
                                           style: TextStyle(
                                             color: _selectedExpiryDate == null
-                                                ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)
-                                                : Theme.of(context).colorScheme.onSurface,
+                                                ? Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface
+                                                      .withValues(alpha: 0.6)
+                                                : Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                             fontSize: 14,
                                           ),
                                           overflow: TextOverflow.ellipsis,
@@ -598,7 +690,9 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
                                       Icon(
                                         Icons.calendar_today_rounded,
                                         size: 16,
-                                        color: Theme.of(context).colorScheme.primary,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                       ),
                                     ],
                                   ),

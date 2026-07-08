@@ -3,17 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Import core architecture components & presentation layout
 import 'core/constants/app_theme.dart';
 import 'core/env/env_config.dart';
 import 'presentation/providers/auth_provider.dart';
+import 'presentation/providers/settings_provider.dart';
+import 'data/services/notification_service.dart';
 import 'presentation/screens/login_register_screen.dart';
 import 'presentation/screens/main_layout.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inisialisasi dotenv untuk mengambil environment variables
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {
@@ -22,22 +22,40 @@ void main() async {
 
   bool isSupabaseConfigured = false;
 
-  // Inisialisasi Supabase secara aman menggunakan EnvConfig dari .env
   if (EnvConfig.isSupabaseConfigured) {
     try {
       await Supabase.initialize(
         url: EnvConfig.supabaseUrl,
         publishableKey: EnvConfig.supabaseAnonKey,
       );
-      
       isSupabaseConfigured = true;
     } catch (e) {
       debugPrint('Gagal menginisialisasi Supabase: $e');
     }
   }
 
+  // Muat preferensi pengguna (tema, pengingat) dari penyimpanan lokal
+  final settings = await AppSettingsSnapshot.load();
+
+  // Inisialisasi plugin notifikasi & zona waktu perangkat
+  await NotificationService().initialize();
+
+  // Jadwalkan pengingat harian jika sudah diaktifkan sebelumnya
+  if (settings.reminderEnabled) {
+    await NotificationService().requestPermissions();
+    await NotificationService().scheduleDailyReminder(
+      hour: settings.reminderTime.hour,
+      minute: settings.reminderTime.minute,
+    );
+  }
+
   runApp(
     ProviderScope(
+      overrides: [
+        themeModeProvider.overrideWith((ref) => settings.themeMode),
+        reminderEnabledProvider.overrideWith((ref) => settings.reminderEnabled),
+        reminderTimeProvider.overrideWith((ref) => settings.reminderTime),
+      ],
       child: MyApp(isSupabaseConfigured: isSupabaseConfigured),
     ),
   );
@@ -45,25 +63,20 @@ void main() async {
 
 class MyApp extends ConsumerWidget {
   final bool isSupabaseConfigured;
-
   const MyApp({super.key, required this.isSupabaseConfigured});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Memantau status login reaktif dari auth_provider
     final isLoggedIn = ref.watch(isLoggedInProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp(
-      title: 'KapanBasi?',
+      title: 'KapanBasi',
       debugShowCheckedModeBanner: false,
-      
-      // Menggunakan tema terpusat dari core/app_theme.dart (Tanpa Hardcode Warna)
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system, // Menyesuaikan dengan pengaturan OS
-      
-      // Jika sudah login tampilkan MainLayout, jika belum tampilkan layar Login/Register
-      home: isLoggedIn 
+      themeMode: themeMode,
+      home: isLoggedIn
           ? MainLayout(isSupabaseConfigured: isSupabaseConfigured)
           : const LoginRegisterScreen(),
     );
