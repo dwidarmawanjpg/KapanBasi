@@ -148,7 +148,7 @@ class NotificationService {
 
     await _plugin.zonedSchedule(
       id: dailyReminderNotificationId,
-      title: 'KapanBasi? Ingatkan Kamu!',
+      title: 'KapanBasi Ingatkan Kamu!',
       body: body,
       scheduledDate: scheduledDate,
       notificationDetails: const NotificationDetails(

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
-/// Konfigurasi Tema Global untuk KapanBasi?
+/// Konfigurasi Tema Global untuk KapanBasi
 /// Menyediakan tema terang dan gelap secara konsisten tanpa hardcoding warna.
 class AppTheme {
   AppTheme._();
@@ -12,7 +12,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      
+
       // Color Scheme Terang (Menggunakan surface sebagai pengganti background yang deprecated)
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
@@ -24,9 +24,9 @@ class AppTheme {
         error: AppColors.riskHigh,
         onError: Colors.white,
       ),
-      
+
       scaffoldBackgroundColor: AppColors.bgLight,
-      
+
       // App Bar Theme
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -40,7 +40,7 @@ class AppTheme {
           fontWeight: FontWeight.bold,
         ),
       ),
-      
+
       // Typography dengan Google Fonts (Plus Jakarta Sans)
       textTheme: GoogleFonts.plusJakartaSansTextTheme().copyWith(
         titleLarge: GoogleFonts.plusJakartaSans(
@@ -66,7 +66,7 @@ class AppTheme {
           color: AppColors.textSecondaryLight,
         ),
       ),
-      
+
       // Card Theme (Menggunakan CardThemeData agar kompatibel dengan Flutter terbaru)
       cardTheme: CardThemeData(
         color: AppColors.surfaceLight,
@@ -76,7 +76,7 @@ class AppTheme {
           side: const BorderSide(color: AppColors.borderLight),
         ),
       ),
-      
+
       // Bottom Navigation Bar Theme (Material 3 dengan WidgetStateProperty)
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.surfaceLight,
@@ -102,7 +102,7 @@ class AppTheme {
           return const IconThemeData(color: AppColors.textSecondaryLight);
         }),
       ),
-      
+
       // Button Theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -119,12 +119,15 @@ class AppTheme {
           ),
         ),
       ),
-      
+
       // Input/TextField Theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.borderLight),
@@ -152,7 +155,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      
+
       // Color Scheme Gelap
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
@@ -164,9 +167,9 @@ class AppTheme {
         error: AppColors.riskHigh,
         onError: Colors.white,
       ),
-      
+
       scaffoldBackgroundColor: AppColors.bgDark,
-      
+
       // App Bar Theme
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -180,33 +183,36 @@ class AppTheme {
           fontWeight: FontWeight.bold,
         ),
       ),
-      
+
       // Typography Gelap dengan Google Fonts (Plus Jakarta Sans)
-      textTheme: GoogleFonts.plusJakartaSansTextTheme(ThemeData.dark().textTheme).copyWith(
-        titleLarge: GoogleFonts.plusJakartaSans(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textPrimaryDark,
-        ),
-        titleMedium: GoogleFonts.plusJakartaSans(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimaryDark,
-        ),
-        bodyLarge: GoogleFonts.plusJakartaSans(
-          fontSize: 16,
-          color: AppColors.textPrimaryDark,
-        ),
-        bodyMedium: GoogleFonts.plusJakartaSans(
-          fontSize: 14,
-          color: AppColors.textSecondaryDark,
-        ),
-        bodySmall: GoogleFonts.plusJakartaSans(
-          fontSize: 12,
-          color: AppColors.textSecondaryDark,
-        ),
-      ),
-      
+      textTheme:
+          GoogleFonts.plusJakartaSansTextTheme(
+            ThemeData.dark().textTheme,
+          ).copyWith(
+            titleLarge: GoogleFonts.plusJakartaSans(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimaryDark,
+            ),
+            titleMedium: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimaryDark,
+            ),
+            bodyLarge: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              color: AppColors.textPrimaryDark,
+            ),
+            bodyMedium: GoogleFonts.plusJakartaSans(
+              fontSize: 14,
+              color: AppColors.textSecondaryDark,
+            ),
+            bodySmall: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              color: AppColors.textSecondaryDark,
+            ),
+          ),
+
       // Card Theme Gelap
       cardTheme: CardThemeData(
         color: AppColors.surfaceDark,
@@ -216,7 +222,7 @@ class AppTheme {
           side: const BorderSide(color: AppColors.borderDark),
         ),
       ),
-      
+
       // Bottom Navigation Bar Theme (Material 3 dengan WidgetStateProperty) Gelap
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.surfaceDark,
@@ -242,7 +248,7 @@ class AppTheme {
           return const IconThemeData(color: AppColors.textSecondaryDark);
         }),
       ),
-      
+
       // Button Theme Gelap
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -259,12 +265,15 @@ class AppTheme {
           ),
         ),
       ),
-      
+
       // Input/TextField Theme Gelap
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surfaceDark,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.borderDark),

@@ -327,7 +327,7 @@ class ProfileScreen extends ConsumerWidget {
                     context: context,
                     icon: Icons.help_outline_rounded,
                     title: 'Bantuan & Dukungan',
-                    subtitle: 'Pertanyaan seputar KapanBasi?',
+                    subtitle: 'Pertanyaan seputar KapanBasi',
                     onTap: () => _showHelpDialog(context),
                   ),
                   const Divider(height: 32),
@@ -586,6 +586,7 @@ class ProfileScreen extends ConsumerWidget {
         content: const Text(
           'Kamu akan keluar dari KapanBasi. Data pantry-mu tetap tersimpan di server.',
         ),
+        actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
