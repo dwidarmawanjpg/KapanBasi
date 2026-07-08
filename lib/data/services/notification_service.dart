@@ -166,8 +166,8 @@ class NotificationService {
   }
 
   /// Menjadwalkan notifikasi kedaluwarsa untuk satu bahan makanan pada pukul
-  /// [hour]:[minute] di tanggal kedaluwarsanya. Tidak berlaku jika tanggal
-  /// kedaluwarsa sudah lewat atau item sudah ditandai selesai.
+  /// [hour]:[minute]. Sesuai PRD v1.5, dijadwalkan pada 3 titik waktu (H-3, H-1, H-0).
+  /// Tidak berlaku jika tanggal kedaluwarsa sudah lewat atau item ditandai selesai.
   Future<void> scheduleFoodExpiryNotification(
     FoodModel food, {
     int hour = 8,
@@ -177,40 +177,68 @@ class NotificationService {
 
     final now = tz.TZDateTime.now(tz.local);
     final expiry = food.expiryDate;
-    var scheduledDate = tz.TZDateTime(
-      tz.local,
-      expiry.year,
-      expiry.month,
-      expiry.day,
-      hour,
-      minute,
+
+    // Helper untuk menjadwalkan satu titik waktu
+    Future<void> scheduleAt(DateTime date, String suffix, String title, String body) async {
+      var scheduledDate = tz.TZDateTime(
+        tz.local,
+        date.year,
+        date.month,
+        date.day,
+        hour,
+        minute,
+      );
+
+      // Jangan jadwalkan notifikasi untuk waktu yang sudah lewat.
+      if (scheduledDate.isBefore(now)) return;
+
+      await _plugin.zonedSchedule(
+        id: _notificationIdFromFoodId('${food.id}$suffix'),
+        title: title,
+        body: body,
+        scheduledDate: scheduledDate,
+        notificationDetails: const NotificationDetails(
+          android: _expiryAndroidDetails,
+          iOS: _iosDetails,
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    }
+
+    // H-3
+    await scheduleAt(
+      expiry.subtract(const Duration(days: 3)), 
+      '_h3', 
+      'Mendekati Kedaluwarsa!', 
+      '3 hari lagi "${food.name}" akan basi. Segera gunakan!'
+    );
+    
+    // H-1
+    await scheduleAt(
+      expiry.subtract(const Duration(days: 1)), 
+      '_h1', 
+      'Besok Basi! ⚠️', 
+      'Besok "${food.name}" akan kedaluwarsa. Jangan sampai terbuang!'
     );
 
-    // Jangan jadwalkan notifikasi untuk waktu yang sudah lewat.
-    if (scheduledDate.isBefore(now)) return;
-
-    await _plugin.zonedSchedule(
-      id: _notificationIdFromFoodId(food.id),
-      title: 'Sudah Waktunya! 🍽️',
-      body:
-          '"${food.name}" mencapai tanggal kedaluwarsa hari ini. Segera cek kondisinya!',
-      scheduledDate: scheduledDate,
-      notificationDetails: const NotificationDetails(
-        android: _expiryAndroidDetails,
-        iOS: _iosDetails,
-      ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    // H-0
+    await scheduleAt(
+      expiry, 
+      '_h0', 
+      'Sudah Waktunya! 🍽️', 
+      '"${food.name}" mencapai tanggal kedaluwarsa hari ini. Segera cek kondisinya!'
     );
   }
 
-  /// Membatalkan notifikasi kedaluwarsa milik satu bahan makanan (misalnya
-  /// saat item dihapus atau ditandai selesai dikonsumsi).
+  /// Membatalkan notifikasi kedaluwarsa milik satu bahan makanan pada 3 titik waktunya.
   Future<void> cancelFoodExpiryNotification(String foodId) async {
-    await _plugin.cancel(id: _notificationIdFromFoodId(foodId));
+    await _plugin.cancel(id: _notificationIdFromFoodId('${foodId}_h3'));
+    await _plugin.cancel(id: _notificationIdFromFoodId('${foodId}_h1'));
+    await _plugin.cancel(id: _notificationIdFromFoodId('${foodId}_h0'));
   }
 
-  /// Menghasilkan ID notifikasi (int32 positif) yang stabil dari UUID bahan makanan.
-  int _notificationIdFromFoodId(String foodId) {
-    return foodId.hashCode & 0x7FFFFFFF;
+  /// Menghasilkan ID notifikasi (int32 positif) yang stabil dari UUID bahan makanan + suffix.
+  int _notificationIdFromFoodId(String foodIdWithSuffix) {
+    return foodIdWithSuffix.hashCode & 0x7FFFFFFF;
   }
 }

@@ -15,6 +15,7 @@ class FoodModel {
   final int quantity; // Jumlah stok barang
   final String unit; // Satuan (Liter, Kg, Pcs, dll)
   final String? notes; // Catatan tambahan opsional
+  final DateTime? createdAt; // Waktu pembuatan presisi (TIMESTAMPTZ dari DB)
 
   FoodModel({
     required this.id,
@@ -29,6 +30,7 @@ class FoodModel {
     this.quantity = 1,
     this.unit = 'pcs',
     this.notes,
+    this.createdAt,
   });
 
   /// Factory untuk membuat instance [FoodModel] dari JSON hasil query Supabase (aman & null-safe)
@@ -51,6 +53,7 @@ class FoodModel {
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
       unit: json['unit'] as String? ?? 'pcs',
       notes: json['notes'] as String?,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
     );
   }
 
@@ -102,6 +105,7 @@ class FoodModel {
     int? quantity,
     String? unit,
     String? notes,
+    DateTime? createdAt,
   }) {
     return FoodModel(
       id: id ?? this.id,
@@ -116,6 +120,7 @@ class FoodModel {
       quantity: quantity ?? this.quantity,
       unit: unit ?? this.unit,
       notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

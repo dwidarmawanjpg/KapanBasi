@@ -59,18 +59,32 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
         );
       } else {
         // Proses Registrasi
-        await authService.register(
+        final autoLoggedIn = await authService.register(
           _emailController.text.trim(),
           _passwordController.text,
           _fullNameController.text.trim(),
         );
         scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text('Registrasi berhasil! Akun Anda siap digunakan.'),
+          SnackBar(
+            content: Text(
+              autoLoggedIn
+                  ? 'Registrasi berhasil! Akun Anda siap digunakan.'
+                  : 'Registrasi berhasil! Silakan cek email Anda untuk konfirmasi akun sebelum masuk.',
+            ),
             backgroundColor: AppColors.riskLow,
             behavior: SnackBarBehavior.floating,
           ),
         );
+        if (!autoLoggedIn && mounted) {
+          // Belum ada sesi aktif (menunggu konfirmasi email) - arahkan
+          // pengguna kembali ke mode Login, jangan masuk ke halaman utama.
+          setState(() {
+            _isLoginMode = true;
+            _formKey.currentState?.reset();
+            _passwordController.clear();
+            _confirmPasswordController.clear();
+          });
+        }
       }
     } catch (e) {
       scaffoldMessenger.showSnackBar(

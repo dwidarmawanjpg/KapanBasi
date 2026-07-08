@@ -38,11 +38,12 @@ class _AddFoodScreenState extends ConsumerState<AddFoodScreen> {
   final List<String> _categories = [
     'Buah',
     'Sayur',
+    'Daging & Protein',
+    'Dairy & Olahan Susu',
+    'Bumbu & Bahan Kering',
     'Minuman',
-    'Susu & Olahan',
-    'Daging & Ikan',
-    'Makanan Instan',
-    'Bumbu Dapur',
+    'Frozen Food',
+    'Makanan Siap Saji/Sisa',
     'Lainnya',
   ];
 

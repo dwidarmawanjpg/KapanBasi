@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'add_food_screen.dart';
-import 'collection_screen.dart';
+import 'history_screen.dart';
 
 // State Provider untuk melacak tab index aktif pada BottomNavigationBar
 final mainNavigationIndexProvider = StateProvider<int>((ref) => 0);
@@ -24,7 +24,7 @@ class MainLayout extends ConsumerWidget {
     // List halaman berdasarkan indeks tab
     final List<Widget> screens = const [
       HomeScreen(),
-      CollectionScreen(),
+      HistoryScreen(),
       ProfileScreen(),
     ];
 
@@ -129,7 +129,7 @@ class MainLayout extends ConsumerWidget {
           NavigationDestination(
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history_rounded),
-            label: 'Collection',
+            label: 'History',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

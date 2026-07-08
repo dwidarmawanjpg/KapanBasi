@@ -1,7 +1,7 @@
 # Product Requirements Document (PRD)
 **Proyek:** KapanBasi Mobile App  
 **Platform:** Android & iOS (Flutter)  
-**Versi Dokumen:** 1.3 (Penambahan Modul Collection/Riwayat & Revisi Navigasi 3 Tab)  
+**Versi Dokumen:** 1.5 (Standarisasi Kategori, Threshold Notifikasi Anti-Spam, Sinkronisasi Status Backend, Detail Teknis Kamera)  
 
 ---
 
@@ -60,7 +60,7 @@ Halaman input data dengan *layout* yang rapi menggunakan `Expanded` pada elemen 
 * **Input Visual:** Area unggah foto/gambar barang.
 * **Input Teks Dasar:** Nama Makanan.
 * **Input Dropdown / Pilihan:** 
-  * Kategori (Buah, Sayur, Minuman, dsb.)
+  * **Kategori** — daftar tetap (*predefined*, konsisten di seluruh aplikasi): Buah, Sayur, Daging & Protein, Dairy & Olahan Susu, Bumbu & Bahan Kering, Minuman, Frozen Food, Makanan Siap Saji/Sisa, Lainnya. Kolom `category` di database tetap bertipe `TEXT` (bukan tabel referensi terpisah), namun karena input selalu berasal dari dropdown ini, nilai yang tersimpan otomatis konsisten dan siap dipakai untuk filter dinamis di Modul 2A.
   * Satuan (Liter, Kg, Pcs)
   * **Tempat Penyimpanan:** (misal: Kulkas Bawah, *Freezer*, Lemari Dapur, Meja Makan).
 * **Input Kuantitas:** Jumlah Stok (*TextField* khusus angka).
@@ -94,6 +94,8 @@ Halaman kontrol pengguna dengan tata letak yang bersih dan profesional.
   * Notifikasi dijadwalkan **lokal di perangkat** (`flutter_local_notifications` + `timezone`) tanpa server push.
   * **Pengingat harian:** Dijadwalkan ulang (*reschedule*) setiap kali `foodsProvider` berhasil memuat data agar konten mencerminkan kondisi pantry terkini. Ini menggantikan notifikasi harian sebelumnya dengan versi baru yang memiliki hitungan item akurat.
   * **Notifikasi per-item:** Dijadwalkan otomatis saat item ditambah/diedit (`add_food_screen`), dan dibatalkan saat item dihapus atau ditandai selesai (`home_screen`, `collection_screen`). Item yang dikembalikan ke aktif akan dijadwalkan ulang notifikasinya.
+  * **Threshold Notifikasi Per-Item (anti-spam):** Notifikasi per-item tidak dikirim setiap ada perubahan kecil, melainkan hanya dijadwalkan pada 3 titik waktu tetap relatif terhadap `expiry_date`: **H-3**, **H-1**, dan **H-0** (hari barang dinyatakan basi). Ini mencegah pengguna menerima notifikasi berlebihan untuk satu barang yang sama.
+  * **Anti-Duplikasi dengan Pengingat Harian:** Jika pada hari yang sama sudah ada notifikasi per-item H-0 untuk suatu barang, notifikasi rekap harian tidak perlu menyebut ulang nama barang tersebut secara detail — cukup ditampilkan sebagai bagian dari angka total (basi/kritis) agar pengguna tidak merasa menerima informasi yang sama dua kali.
   * Preferensi pengingat (aktif/nonaktif + jam) dimuat dari `SharedPreferences` sebelum `runApp()` dan di-*override* ke Riverpod `ProviderScope` agar state awal konsisten.
 
 ---
@@ -101,8 +103,9 @@ Halaman kontrol pengguna dengan tata letak yang bersih dan profesional.
 ## 4. Persyaratan Teknis (Technical Requirements)
 * **Frontend:** Flutter (Dart).
 * **Desain UI/UX:** Fokus pada estetika visual, *white space* yang cukup, dan komponen yang konsisten (mengacu pada *prototype* Figma).
-* **Backend:** Supabase (PostgreSQL, Auth, Storage) — *Mode dummy data digunakan selama fase penyelesaian desain UI*.
-* **State Management:** Disesuaikan dengan *Clean Architecture*.
+* **Backend:** Custom Express (Node.js) sebagai API Gateway, terhubung ke Supabase (PostgreSQL, Auth, Storage). Lihat detail arsitektur lengkap di Bagian 7. *(Catatan: mode dummy data hanya dipakai di awal fase desain UI dan sudah digantikan sepenuhnya oleh backend nyata sejak implementasi Bagian 7 selesai.)*
+* **State Management:** Riverpod, disesuaikan dengan *Clean Architecture*.
+* **Kamera & Galeri:** Package `image_picker` digunakan untuk mengambil foto dari kamera atau memilih dari galeri, baik untuk foto bahan makanan (Modul 3) maupun foto avatar profil (Modul 4). Aplikasi wajib menangani permintaan izin (*permission handling*) akses kamera dan penyimpanan di Android & iOS sebelum membuka picker.
 
 ---
 
@@ -129,7 +132,7 @@ Tabel utama untuk menyimpan catatan inventaris bahan makanan. Setiap baris data 
 | `id` | `UUID` | **Primary Key**, *Default: gen_random_uuid()*. |
 | `user_id` | `UUID` | **Foreign Key** ke `profiles.id`. *Not Null*. Memastikan data hanya bisa dilihat oleh pemiliknya. |
 | `name` | `TEXT` | *Not Null*. Nama bahan makanan/produk. |
-| `category` | `TEXT` | *Not Null*. Kategori (Bahan Mentah, Minuman, Sayur, dll). |
+| `category` | `TEXT` | *Not Null*. Kategori, diisi dari daftar tetap di form input (Buah, Sayur, Daging & Protein, Dairy & Olahan Susu, Bumbu & Bahan Kering, Minuman, Frozen Food, Makanan Siap Saji/Sisa, Lainnya). Lihat Modul 3. |
 | `storage_location` | `TEXT` | *Not Null*. Tempat penyimpanan (Kulkas, Lemari, dll). |
 | `quantity` | `NUMERIC` / `INT` | *Not Null*. Jumlah stok barang. |
 | `unit` | `TEXT` | *Not Null*. Satuan stok (Liter, Kg, Pcs, dll). |
@@ -214,5 +217,75 @@ Berikut adalah ringkasan teknis mengenai fitur dan konfigurasi yang telah berhas
 3. **Toggle Tema:** `themeModeProvider` (Riverpod) di-persist di `SharedPreferences`. `MaterialApp` mengonsumsi provider ini secara reaktif sehingga tema berubah tanpa restart aplikasi.
 4. **Notifikasi Lokal:** `NotificationService` (singleton) mengelola dua jenis notifikasi via `flutter_local_notifications`:
    - *Pengingat harian* — dijadwalkan ulang setiap kali `foodsProvider` selesai memuat data agar isinya mencerminkan kondisi pantry terkini.
-   - *Notifikasi per-item* — dijadwalkan saat item ditambah/diedit, dan dibatalkan saat item dihapus/selesai dikonsumsi.
-5. **Persistensi Pengaturan:** Semua preferensi (tema, pengingat aktif/nonaktif, jam pengingat) dimuat dari `SharedPreferences` sebelum `runApp()` melalui `AppSettingsSnapshot.load()` dan di-*override* ke `ProviderScope`.
+   - **Persistensi Pengaturan:** Semua preferensi (tema, pengingat aktif/nonaktif, jam pengingat) dimuat dari `SharedPreferences` sebelum `runApp()` melalui `AppSettingsSnapshot.load()` dan di-*override* ke `ProviderScope`.
+
+---
+
+## 8. Detail Spesifikasi Implementasi Internal (Internal Implementation Specifications)
+Bagian ini berisi rekapitulasi struktur teknis berdasarkan *codebase* riil, yang mempermudah proses revisi, *brainstorming*, dan *onboarding* tim baru.
+
+### A. Struktur Proyek (*Clean Architecture*)
+```text
+lib/
+├── core/                  # Utilitas, konstanta, dan konfigurasi global
+│   ├── constants/         # Token UI (app_colors.dart, app_theme.dart)
+│   ├── env/               # Pembaca konfigurasi environment (.env)
+│   └── utils/             # Helper fungsi (misal: uuid_generator.dart)
+├── data/                  # Data layer (Model & Service)
+│   ├── models/            # Struktur data (misal: food_model.dart)
+│   └── services/          # Integrasi eksternal (supabase_service.dart, notification_service.dart)
+├── presentation/          # UI Layer dan State Management
+│   ├── providers/         # Riverpod State (auth_provider, foods_provider, settings_provider)
+│   ├── screens/           # Halaman UI mandiri (home_screen, collection_screen, dll.)
+│   └── widgets/           # Komponen UI reusable (food_card.dart)
+└── main.dart              # Entry point aplikasi
+```
+
+### B. Konvensi Desain (Theming & UI Identity)
+* **Warna Utama (Brand):** *Emerald Green* (`#10B981`) dan *Amber* (`#F59E0B`). Warna dipilih untuk merepresentasikan kesegaran dan urgensi.
+* **Warna Status (Risk Indicators):**
+  * `riskHigh` (Merah `#EF4444`): Basi atau kedaluwarsa hari ini (Kritis).
+  * `riskMedium` (Amber `#F59E0B`): Segera kedaluwarsa (≤ 3 hari).
+  * `riskLow` (Hijau `#10B981`): Aman (> 3 hari).
+* **Tipografi:** Menggunakan **Google Fonts - Plus Jakarta Sans** untuk seluruh teks aplikasi guna memberikan kesan modern dan bersih.
+* **Mode Tema:** Mendukung penuh *Light Mode* dan *Dark Mode*, warna latar di-assign ke properti `surface` mengikuti spesifikasi *Material 3*.
+
+### C. State Management (Riverpod Providers Map)
+* `isLoggedInProvider`: Melacak status autentikasi secara *real-time* berbasis aliran (`stream`) Supabase.
+* `userProfileProvider`: Memuat profil pengguna (nama & avatar) secara asinkron dari backend `GET /api/profile`.
+* `foodsProvider`: Memuat daftar makanan **aktif** (`is_consumed == false`).
+* `collectionFoodsProvider`: Memuat **seluruh** riwayat inventaris makanan, diurutkan berdasarkan `created_at` untuk halaman Collection.
+* `storageLocationsProvider`: Memuat data referensi tempat penyimpanan (Kulkas, Lemari) langsung dari backend `/api/storage-locations`.
+* `themeModeProvider`, `reminderEnabledProvider`, `reminderTimeProvider`: Melacak *state* pengaturan pengguna secara sinkronous setelah di-*load* dari `SharedPreferences` saat awal `runApp`.
+
+### D. Penanganan *Edge Cases* & Fallbacks
+1. **Fallback Tanggal:** Jika kolom `created_at` kosong (karena data diinput versi aplikasi lama), sistem di `collection_screen.dart` akan jatuh kembali menggunakan `start_date` untuk keperluan logika *sorting*.
+2. **Kategori yang Dihapus:** Pada Modul *Collection*, opsi *dropdown filter* kategori diambil secara dinamis dari **data riil pengguna** menggunakan `Set`, bukan dari *hardcoded list* agar filter tetap relevan sekalipun kategori di data lama sudah berubah atau di-*deprecate* di aplikasi baru.
+
+### E. Detail Visual & Komponen Pop-up Tiap Halaman
+1. **Home Screen (`home_screen.dart`) - Food Detail Bottom Sheet:**
+   - Muncul saat pengguna menekan salah satu `FoodCard` di daftar utama.
+   - **Visual:** Memiliki *Pull Bar* abu-abu di bagian atas, nama makanan rata tengah, dan lencana (*badge*) kategori dengan warna *primary* berlatar transparan (alpha 0.1).
+   - **Informasi:** Menampilkan *storage location*, *quantity*, *start date*, *expiry date*, *status* (dengan warna dinamis Merah/Hijau berdasarkan hari tersisa), dan *notes*.
+   - **Aksi:** Tombol "Edit" (Outlined), "Selesai" (Hijau tebal dengan ikon *check*), dan "Hapus Item" (Teks merah di bawah).
+2. **Collection Screen (`collection_screen.dart`) - Advanced Filter & Action Sheet:**
+   - **Filter Lanjutan:** Muncul sebagai *Bottom Sheet* memuat *Dropdown* Kategori dinamis dan *SegmentedButton* untuk memilih mode tanggal (Masuk/Kedaluwarsa), ditambah tombol `showDateRangePicker` bawaan Material 3.
+   - **Action Sheet (Semi-Immutable):** Mirip dengan Home, namun **tanpa** tombol Edit. Jika item berstatus `is_consumed = true`, tombol Edit digantikan dengan "Kembalikan ke Aktif" (*Replay icon*). Item yang sudah dihapus dari riwayat akan benar-benar hilang dari database.
+3. **Add/Edit Food Screen (`add_food_screen.dart`):**
+   - **Image Source Bottom Sheet:** Dialog ringkas berisi opsi ListTile "Ambil dari Kamera" dan "Pilih dari Galeri". Saat dipilih, memicu fungsi `_pickImage()` dari `image_picker`.
+   - **Layout Input:** Tanggal Masuk dan Kedaluwarsa diatur bersebelahan (Row -> Expanded) agar tidak mengalami *right overflow* pada layar sempit. Kategori dan Satuan menggunakan `DropdownButtonFormField`.
+4. **Settings / Profile (`profile_screen.dart` & `edit_profile_screen.dart`):**
+   - Dialog "Ganti Tema" berupa *AlertDialog* standar dengan `RadioListTile` (Terang, Gelap, Sistem).
+   - Pemilihan Jam Pengingat Harian memicu `showTimePicker()` native platform. Jam disimpan ke dalam konfigurasi lokal dan diteruskan ke *Local Notifications Plugin*.
+
+### F. Logika Bisnis & Alur Data (Logic Flow)
+1. **Alur Status "Selesai" (Consumption Flow):**
+   - Data Makanan Baru -> `is_consumed = false`. Ditampilkan di **Home** dan **Collection (Tab Semua/Aktif)**.
+   - Tombol "Selesai" ditekan -> Aplikasi membatalkan notifikasi H-3, H-1, H-0 (via `NotificationService`), lalu melakukan `UPDATE` ke backend mengubah status menjadi `is_consumed = true`. Item **menghilang dari Home**, tapi tetap ada di **Collection (Tab Semua/Selesai)**.
+2. **Logika Pengurutan & Filter (Sorting & Filtering):**
+   - **Home:** Menggunakan `supabase_service.dart` metode `.eq('is_consumed', false).order('expiry_date', ascending: true)`. Barang terdekat dengan kebusukan akan tampil di urutan 1 teratas.
+   - **Collection:** Mengambil **seluruh data**. Di sisi klien (Flutter), diurutkan *descending* berdasarkan `created_at` (terbaru di atas) agar bertindak persis seperti *log history* berurutan.
+3. **Logika Notifikasi Threshold (Anti-Spam):**
+   - Ali-alih menggunakan pengingat harian yang menyebalkan per item, setiap UUID item digunakan untuk menghasilkan 3 jadwal notifikasi (H-3, H-1, H-0). Saat item diperbarui (misal: di-edit tanggalnya), notifikasi sebelumnya dibatalkan terlebih dahulu, baru 3 jadwal baru di-set ulang pada zona waktu lokal (`tz.local`).
+4. **Logika Otentikasi Cepat (Quick Auth Flow):**
+   - `auth_provider.dart` mendengarkan (`listen`) kejadian `onAuthStateChange`. Jika sesi valid, `isLoggedInProvider` berubah menjadi `true`. `main.dart` mendengarkannya secara reaktif dan otomatis me-render `MainLayout()` tanpa perlu panggilan navigasi manual seperti `Navigator.pushReplacement`.
