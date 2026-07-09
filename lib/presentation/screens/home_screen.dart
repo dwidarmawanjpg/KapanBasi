@@ -1,10 +1,14 @@
+import 'history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+
 import '../../data/models/food_model.dart';
 import '../providers/foods_provider.dart';
 import '../widgets/food_card.dart';
-import 'add_food_screen.dart';
+import '../widgets/food_detail_bottom_sheet.dart';
+import 'main_layout.dart' show mainNavigationIndexProvider;
+
+
 
 /// Screen utama untuk menampilkan daftar bahan makanan yang dipantau.
 /// Menggunakan Riverpod foodsProvider untuk fetching data secara terstruktur (Clean Architecture).
@@ -33,12 +37,15 @@ class HomeScreen extends ConsumerWidget {
                 SizedBox(height: 16),
                 Text(
                   'Mengambil data makanan...',
-                  style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
           ),
-          
+
           // 2. Error State
           error: (error, stackTrace) => Center(
             child: SingleChildScrollView(
@@ -56,8 +63,8 @@ class HomeScreen extends ConsumerWidget {
                   Text(
                     'Ups, Gagal Memuat Data',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
@@ -70,7 +77,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
           ),
-          
+
           // 3. Success State (Menampilkan daftar makanan atau Empty State)
           data: (foods) {
             if (foods.isEmpty) {
@@ -88,7 +95,9 @@ class HomeScreen extends ConsumerWidget {
                             Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -100,9 +109,8 @@ class HomeScreen extends ConsumerWidget {
                             const SizedBox(height: 24),
                             Text(
                               'Pantry Anda Kosong',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
@@ -122,9 +130,12 @@ class HomeScreen extends ConsumerWidget {
 
             return ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: foods.length,
+              itemCount: foods.length + 1,
               itemBuilder: (context, index) {
-                final food = foods[index];
+                if (index == 0) {
+                  return _DashboardStatsHeader(foods: foods, ref: ref);
+                }
+                final food = foods[index - 1];
                 return FoodCard(
                   food: food,
                   onTap: () {
@@ -140,264 +151,281 @@ class HomeScreen extends ConsumerWidget {
   }
 
   /// Menampilkan bottom sheet interaktif berisi detail, edit, tandai selesai, dan hapus item
-  void _showFoodDetailBottomSheet(BuildContext context, WidgetRef ref, FoodModel food) {
+  void _showFoodDetailBottomSheet(
+    BuildContext context,
+    WidgetRef ref,
+    FoodModel food,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
-        final now = DateTime.now();
-        final today = DateTime(now.year, now.month, now.day);
-        final expiry = DateTime(food.expiryDate.year, food.expiryDate.month, food.expiryDate.day);
-        final diff = expiry.difference(today).inDays;
-        final bool isExpired = diff < 0;
-
-        return Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Pull bar
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[350],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-
-              // Title
-              Text(
-                food.name,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-
-              // Category Badge
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    food.category,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Dates & Status Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-                ),
-                child: Column(
-                  children: [
-                    _buildDetailRow(
-                      context, 
-                      'Tempat Penyimpanan:', 
-                      food.storageLocation
-                    ),
-                    const Divider(height: 20),
-                    _buildDetailRow(
-                      context, 
-                      'Jumlah / Kuantitas:', 
-                      '${food.quantity} ${food.unit}'
-                    ),
-                    const Divider(height: 20),
-                    _buildDetailRow(
-                      context, 
-                      'Tanggal Masuk:', 
-                      DateFormat('dd MMM yyyy').format(food.startDate)
-                    ),
-                    const Divider(height: 20),
-                    _buildDetailRow(
-                      context, 
-                      'Tanggal Kedaluwarsa:', 
-                      DateFormat('dd MMM yyyy').format(food.expiryDate),
-                      valueColor: isExpired ? Colors.redAccent : Colors.green,
-                    ),
-                    const Divider(height: 20),
-                    _buildDetailRow(
-                      context, 
-                      'Status Masa Aktif:', 
-                      isExpired 
-                          ? 'Sudah Basi (${diff.abs()} hari lalu)' 
-                          : (diff == 0 ? 'Kedaluwarsa Hari Ini' : '$diff hari lagi'),
-                      valueColor: isExpired ? Colors.redAccent : Colors.green,
-                      isBold: true,
-                    ),
-                    const Divider(height: 20),
-                    _buildDetailRow(
-                      context, 
-                      'Catatan:', 
-                      food.notes != null && food.notes!.isNotEmpty ? food.notes! : 'Tidak ada catatan',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Actions (Edit & Selesai)
-              Row(
-                children: [
-                  // Edit Button
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context); // Tutup bottom sheet
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddFoodScreen(foodToEdit: food),
-                          ),
-                        );
-                      },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      icon: const Icon(Icons.edit_rounded, size: 20),
-                      label: const Text('Edit'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Selesai (Mark as consumed) Button
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        Navigator.pop(context); // Tutup bottom sheet
-                        
-                        try {
-                          final updatedFood = food.copyWith(isConsumed: true);
-                          await ref.read(supabaseServiceProvider).updateFood(updatedFood);
-                          ref.invalidate(foodsProvider);
-                          
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Item berhasil diselesaikan!'),
-                                behavior: SnackBarBehavior.floating,
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Gagal menyelesaikan item: $e'),
-                                behavior: SnackBarBehavior.floating,
-                                backgroundColor: Colors.redAccent,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
-                      label: const Text('Selesai'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // Hapus Button
-              TextButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context); // Tutup bottom sheet
-                  
-                  try {
-                    await ref.read(supabaseServiceProvider).deleteFood(food.id);
-                    ref.invalidate(foodsProvider);
-                    
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Item berhasil dihapus!'),
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor: Colors.grey,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Gagal menghapus item: $e'),
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor: Colors.redAccent,
-                        ),
-                      );
-                    }
-                  }
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                label: const Text('Hapus Item'),
-              ),
-            ],
-          ),
-        );
+        return FoodDetailBottomSheet(food: food);
       },
     );
   }
+}
 
-  Widget _buildDetailRow(
-    BuildContext context, 
-    String label, 
-    String value, {
-    Color? valueColor, 
-    bool isBold = false,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-        ),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-                color: valueColor ?? Theme.of(context).colorScheme.onSurface,
+/// Helper: apakah item sudah lewat tanggal kedaluwarsa (basi).
+bool _isExpired(FoodModel food) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final expiry = DateTime(
+    food.expiryDate.year,
+    food.expiryDate.month,
+    food.expiryDate.day,
+  );
+  return expiry.difference(today).inDays < 0;
+}
+
+/// Helper: sisa hari menuju kedaluwarsa (bisa negatif jika sudah basi).
+int _daysUntilExpiry(FoodModel food) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final expiry = DateTime(
+    food.expiryDate.year,
+    food.expiryDate.month,
+    food.expiryDate.day,
+  );
+  return expiry.difference(today).inDays;
+}
+
+/// Header dashboard yang tampil di atas daftar Home: 3 kartu statistik
+/// (Aman / Kritis / Basi) + progress bar distribusi.
+/// Setiap kartu bisa di-tap untuk langsung membuka History dengan filter terkait.
+class _DashboardStatsHeader extends StatelessWidget {
+  final List<FoodModel> foods;
+  final WidgetRef ref;
+
+  const _DashboardStatsHeader({required this.foods, required this.ref});
+
+  static const int _nearExpiryThresholdDays = 7;
+
+  @override
+  Widget build(BuildContext context) {
+    // `foods` di sini adalah item yang belum ditandai "Selesai" (kritis + basi).
+    final basiCount = foods.where(_isExpired).length;
+    final nearExpiryCount = foods.where((f) {
+      final days = _daysUntilExpiry(f);
+      return days >= 0 && days <= _nearExpiryThresholdDays;
+    }).length;
+    // "Aman" = seluruh item yang TIDAK basi dan TIDAK termasuk hampir
+    // kadaluarsa (nearExpiry/Kritis). Sebelumnya hanya mengurangi basiCount
+    // saja dari total, sehingga item Kritis ikut terhitung dobel di sini
+    // (muncul juga di kartu "Kritis" DAN "Aman" sekaligus). Di-clamp ke 0
+    // untuk jaga-jaga terhadap data yang tidak konsisten.
+    final rawAmanCount = foods.length - basiCount - nearExpiryCount;
+    final aktifCount = rawAmanCount < 0 ? 0 : rawAmanCount;
+
+    final theme = Theme.of(context);
+    final warningColor = Colors.orange.shade700;
+    final dangerColor = theme.colorScheme.error;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _StatCard(
+                  label: 'Aman',
+                  value: aktifCount,
+                  icon: Icons.check_circle_outline_rounded,
+                  color: theme.colorScheme.primary,
+                  onTap: () => _goToHistory(HistoryFilter.aman),
+                ),
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _StatCard(
+                  label: 'Kritis',
+                  value: nearExpiryCount,
+                  icon: Icons.access_time_rounded,
+                  color: warningColor,
+                  onTap: () => _goToHistory(HistoryFilter.kritis),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _StatCard(
+                  label: 'Basi',
+                  value: basiCount,
+                  icon: Icons.delete_outline_rounded,
+                  color: dangerColor,
+                  onTap: () => _goToHistory(HistoryFilter.basi),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _StatusDistributionBar(
+            aktifCount: aktifCount,
+            nearExpiryCount: nearExpiryCount,
+            basiCount: basiCount,
+            warningColor: warningColor,
+            dangerColor: dangerColor,
+            primaryColor: theme.colorScheme.primary,
+          ),
+          const SizedBox(height: 8),
+          Divider(color: theme.colorScheme.outlineVariant),
+        ],
+      ),
+    );
+  }
+
+  /// Pindah ke tab History dengan filter status yang sesuai dengan kartu yang di-tap.
+  void _goToHistory(HistoryFilter filter) {
+    ref.read(pendingHistoryFilterProvider.notifier).state = filter;
+    ref.read(mainNavigationIndexProvider.notifier).state = 1;
+  }
+}
+
+/// Satu kartu statistik kecil (angka + label + ikon), bisa di-tap.
+class _StatCard extends StatelessWidget {
+  final String label;
+  final int value;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(height: 6),
+              Text(
+                '$value',
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bar horizontal kecil yang memvisualisasikan proporsi aman / hampir kadaluarsa / basi
+/// tanpa perlu menambah package chart eksternal — cukup Container + Row.
+class _StatusDistributionBar extends StatelessWidget {
+  final int aktifCount;
+  final int nearExpiryCount;
+  final int basiCount;
+  final Color warningColor;
+  final Color dangerColor;
+  final Color primaryColor;
+
+  const _StatusDistributionBar({
+    required this.aktifCount,
+    required this.nearExpiryCount,
+    required this.basiCount,
+    required this.warningColor,
+    required this.dangerColor,
+    required this.primaryColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final total = aktifCount + nearExpiryCount + basiCount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: SizedBox(
+            height: 10,
+            child: total == 0
+                ? Container(color: Theme.of(context).colorScheme.surfaceContainerHighest)
+                : Row(
+                    children: [
+                      if (aktifCount > 0)
+                        Expanded(
+                          flex: aktifCount,
+                          child: Container(color: primaryColor),
+                        ),
+                      if (nearExpiryCount > 0)
+                        Expanded(
+                          flex: nearExpiryCount,
+                          child: Container(color: warningColor),
+                        ),
+                      if (basiCount > 0)
+                        Expanded(
+                          flex: basiCount,
+                          child: Container(color: dangerColor),
+                        ),
+                    ],
+                  ),
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// Titik warna kecil + label untuk legenda progress bar.
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  final String text;
+
+  const _LegendDot({required this.color, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 10.5, color: Colors.grey),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

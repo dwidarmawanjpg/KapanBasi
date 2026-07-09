@@ -5,13 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'add_food_screen.dart';
+import 'history_screen.dart';
+import '../widgets/notification_bell_button.dart';
 
 // State Provider untuk melacak tab index aktif pada BottomNavigationBar
 final mainNavigationIndexProvider = StateProvider<int>((ref) => 0);
 
-
-
-/// Layout Utama aplikasi yang mengimplementasikan BottomNavigationBar (Home & Profile)
+/// Layout Utama aplikasi yang mengimplementasikan BottomNavigationBar (Home, Collection & Akun)
 /// dan menampung FloatingActionButton di tengah.
 class MainLayout extends ConsumerWidget {
   final bool isSupabaseConfigured;
@@ -25,13 +25,14 @@ class MainLayout extends ConsumerWidget {
     // List halaman berdasarkan indeks tab
     final List<Widget> screens = const [
       HomeScreen(),
+      HistoryScreen(),
       ProfileScreen(),
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'KapanBasi?',
+          'KapanBasi',
           style: GoogleFonts.fredoka(
             textStyle: TextStyle(
               fontSize: 26,
@@ -54,6 +55,9 @@ class MainLayout extends ConsumerWidget {
               size: 24,
             ),
           ),
+          // Tombol notifikasi kedaluwarsa - di kanan ikon awan
+          const NotificationBellButton(),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -63,13 +67,18 @@ class MainLayout extends ConsumerWidget {
             if (!isSupabaseConfigured)
               Container(
                 width: double.infinity,
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.15),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline, 
-                      color: Theme.of(context).colorScheme.primary, 
+                      Icons.info_outline,
+                      color: Theme.of(context).colorScheme.primary,
                       size: 20,
                     ),
                     const SizedBox(width: 12),
@@ -90,21 +99,29 @@ class MainLayout extends ConsumerWidget {
           ],
         ),
       ),
-      
-      // Tombol FAB untuk Tambah Item dengan warna dinamis dari tema
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddFoodScreen()),
-          );
-        },
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        tooltip: 'Tambah Item',
-        child: const Icon(Icons.add_rounded, size: 28),
-      ),
-      
+
+      // Tombol FAB hanya muncul di tab Home (index 0)
+      floatingActionButton: selectedIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddFoodScreen(),
+                  ),
+                );
+              },
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              tooltip: 'Tambah Item',
+              icon: const Icon(Icons.add_rounded, size: 22),
+              label: const Text(
+                'Tambah',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            )
+          : null,
+
       // Bottom Navigation Bar Material 3 (Mengambil style dari AppTheme secara otomatis)
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
@@ -116,6 +133,11 @@ class MainLayout extends ConsumerWidget {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
             label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.search_outlined),
+            selectedIcon: Icon(Icons.search_rounded),
+            label: 'Search',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

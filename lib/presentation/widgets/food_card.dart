@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../core/constants/app_colors.dart';
+import '../../core/utils/food_status.dart';
 import '../../data/models/food_model.dart';
 
 /// Card Widget premium untuk menampilkan detail bahan makanan / produk.
@@ -9,38 +9,19 @@ class FoodCard extends StatelessWidget {
   final FoodModel food;
   final VoidCallback? onTap;
 
-  const FoodCard({
-    super.key,
-    required this.food,
-    this.onTap,
-  });
+  const FoodCard({super.key, required this.food, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final expiry = DateTime(food.expiryDate.year, food.expiryDate.month, food.expiryDate.day);
-    final differenceInDays = expiry.difference(today).inDays;
+    // Status kesegaran disinkronkan lewat helper bersama: Aman / Kritis (<=7 hari) / Basi / Selesai
+    final statusInfo = getFoodStatus(food);
+    final Color statusColor = statusInfo.color;
+    final String statusText = statusInfo.label;
 
-    // Logika warna: Merah jika sudah terlewati (kedaluwarsa), Hijau jika masih aman
-    final bool isExpired = differenceInDays < 0;
-    final Color statusColor = isExpired ? AppColors.riskHigh : AppColors.riskLow;
-
-    // Format tanggal
-    final String formattedStart = DateFormat('dd MMM yyyy').format(food.startDate);
-    final String formattedExpiry = DateFormat('dd MMM yyyy').format(food.expiryDate);
-
-    // Keterangan status masa aktif
-    String statusText;
-    if (isExpired) {
-      statusText = 'Kedaluwarsa ${differenceInDays.abs()} hari lalu';
-    } else if (differenceInDays == 0) {
-      statusText = 'Kedaluwarsa hari ini';
-    } else if (differenceInDays == 1) {
-      statusText = 'Kedaluwarsa besok';
-    } else {
-      statusText = '$differenceInDays hari lagi';
-    }
+    // Format tanggal dibuat numerik agar ringkas dan tidak memakan ruang kartu.
+    final String formattedExpiry = DateFormat(
+      'dd/MM/yyyy',
+    ).format(food.expiryDate);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -55,10 +36,12 @@ class FoodCard extends StatelessWidget {
             children: [
               // 1. Gambar/Thumbnail Makanan dengan placeholder premium
               Container(
-                width: 80,
-                height: 80,
+                width: 72,
+                height: 72,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: food.imageUrl != null && food.imageUrl!.isNotEmpty
@@ -73,42 +56,51 @@ class FoodCard extends StatelessWidget {
                       )
                     : _buildCategoryIcon(context, food.category),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
 
               // 2. Info Detail Makanan
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Nama Makanan
-                    Text(
-                      food.name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            food.name,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusBadge(statusText, statusColor),
+                      ],
                     ),
                     const SizedBox(height: 6),
 
                     // Kategori & Lokasi Penyimpanan (Badges)
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
                       children: [
                         _buildBadge(
                           context,
                           food.category,
-                          food.category.toLowerCase() == 'minuman' 
-                              ? Icons.local_drink_rounded 
+                          food.category.toLowerCase() == 'minuman'
+                              ? Icons.local_drink_rounded
                               : Icons.restaurant_rounded,
                         ),
-                        const SizedBox(width: 6),
                         _buildBadge(
                           context,
                           food.storageLocation,
                           Icons.kitchen_rounded,
                         ),
-                        const SizedBox(width: 6),
                         _buildBadge(
                           context,
                           '${food.quantity} ${food.unit}',
@@ -118,68 +110,51 @@ class FoodCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
 
-                    // Tanggal Masuk dan Kedaluwarsa
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Tgl Masuk',
-                              style: TextStyle(fontSize: 10, color: Colors.grey),
-                            ),
-                            Text(
-                              formattedStart,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            const Text(
-                              'Tgl Kedaluwarsa',
-                              style: TextStyle(fontSize: 10, color: Colors.grey),
-                            ),
-                            Text(
-                              formattedExpiry,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: statusColor, // Indikator warna merah/hijau tanggal kedaluwarsa
-                                  ),
-                            ),
-                          ],
+                        Icon(Icons.event_rounded, size: 14, color: statusColor),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Kedaluwarsa $formattedExpiry',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: statusColor,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(width: 6),
-              
-              // 3. Status Badge Kanan Atas (Merah/Hijau)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  statusText,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String text, Color color) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 76),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
@@ -197,12 +172,17 @@ class FoodCard extends StatelessWidget {
         children: [
           Icon(icon, size: 10, color: Colors.grey[600]),
           const SizedBox(width: 3),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w500,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 80),
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

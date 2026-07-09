@@ -11,7 +11,8 @@ class LoginRegisterScreen extends ConsumerStatefulWidget {
   const LoginRegisterScreen({super.key});
 
   @override
-  ConsumerState<LoginRegisterScreen> createState() => _LoginRegisterScreenState();
+  ConsumerState<LoginRegisterScreen> createState() =>
+      _LoginRegisterScreenState();
 }
 
 class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
@@ -40,6 +41,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
 
     setState(() => _isLoading = true);
     final authService = ref.read(authServiceProvider);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       if (_isLoginMode) {
@@ -48,42 +50,50 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
           _emailController.text.trim(),
           _passwordController.text,
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Login berhasil! Selamat datang di KapanBasi?'),
-              backgroundColor: AppColors.riskLow,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Login berhasil! Selamat datang di KapanBasi'),
+            backgroundColor: AppColors.riskLow,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       } else {
         // Proses Registrasi
-        await authService.register(
+        final autoLoggedIn = await authService.register(
           _emailController.text.trim(),
           _passwordController.text,
           _fullNameController.text.trim(),
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registrasi berhasil! Akun Anda siap digunakan.'),
-              backgroundColor: AppColors.riskLow,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(
-            content: Text('Gagal: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: AppColors.riskHigh,
+            content: Text(
+              autoLoggedIn
+                  ? 'Registrasi berhasil! Akun Anda siap digunakan.'
+                  : 'Registrasi berhasil! Silakan cek email Anda untuk konfirmasi akun sebelum masuk.',
+            ),
+            backgroundColor: AppColors.riskLow,
             behavior: SnackBarBehavior.floating,
           ),
         );
+        if (!autoLoggedIn && mounted) {
+          // Belum ada sesi aktif (menunggu konfirmasi email) - arahkan
+          // pengguna kembali ke mode Login, jangan masuk ke halaman utama.
+          setState(() {
+            _isLoginMode = true;
+            _formKey.currentState?.reset();
+            _passwordController.clear();
+            _confirmPasswordController.clear();
+          });
+        }
       }
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Gagal: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppColors.riskHigh,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -121,7 +131,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'KapanBasi?',
+                        'KapanBasi',
                         style: GoogleFonts.fredoka(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -131,12 +141,12 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        _isLoginMode 
-                            ? 'Pantau kesegaran makananmu agar tidak terbuang sia-sia.' 
+                        _isLoginMode
+                            ? 'Pantau kesegaran makananmu agar tidak terbuang sia-sia.'
                             : 'Mulai buat akun untuk melacak masa kedaluwarsa pantry-mu.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+                          color: Colors.grey[600],
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -157,9 +167,8 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                       children: [
                         Text(
                           _isLoginMode ? 'Masuk ke Akun' : 'Daftar Akun Baru',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 24),
@@ -197,7 +206,9 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                             if (value == null || value.isEmpty) {
                               return 'Harap masukkan alamat email';
                             }
-                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                            if (!RegExp(
+                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                            ).hasMatch(value)) {
                               return 'Format email tidak valid';
                             }
                             return null;
@@ -214,12 +225,14 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                             prefixIcon: const Icon(Icons.lock_outline_rounded),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscurePassword 
-                                    ? Icons.visibility_off_outlined 
+                                _obscurePassword
+                                    ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
                               ),
                               onPressed: () {
-                                setState(() => _obscurePassword = !_obscurePassword);
+                                setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                );
                               },
                             ),
                           ),
@@ -286,8 +299,8 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      _isLoginMode 
-                          ? 'Belum punya akun? ' 
+                      _isLoginMode
+                          ? 'Belum punya akun? '
                           : 'Sudah memiliki akun? ',
                       style: TextStyle(color: Colors.grey[600]),
                     ),

@@ -13,6 +13,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Wajib untuk flutter_local_notifications (Java 8+ API on older Android)
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -20,10 +22,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.kapanbasi.kapanbasi"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -41,4 +40,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Diperlukan oleh flutter_local_notifications untuk desugaring Java 8+ API
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

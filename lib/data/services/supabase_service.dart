@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -9,7 +10,6 @@ import '../models/food_model.dart';
 /// Service class yang berinteraksi dengan Custom Backend API.
 /// Menyediakan fungsi CRUD database dan upload asset/media.
 class SupabaseService {
-  
   /// Mengambil JWT token dari session aktif lokal
   String? get _token {
     try {
@@ -29,8 +29,17 @@ class SupabaseService {
     };
   }
 
-  /// Mengambil semua daftar bahan makanan dari API backend
+  /// Mengambil daftar bahan makanan yang masih AKTIF (belum ditandai selesai/`is_consumed = false`).
+  /// Digunakan oleh halaman Home agar hanya menampilkan barang yang masih perlu dipantau.
   Future<List<FoodModel>> getFoods() async {
+    final allFoods = await getAllFoods();
+    // Filter lokal untuk isConsumed agar terhindar dari sisa item selesai
+    return allFoods.where((food) => !food.isConsumed).toList();
+  }
+
+  /// Mengambil SELURUH daftar bahan makanan tanpa filter status (termasuk yang sudah selesai/`is_consumed = true`).
+  /// Digunakan oleh halaman Collection sebagai riwayat lengkap.
+  Future<List<FoodModel>> getAllFoods() async {
     try {
       final response = await http.get(
         Uri.parse('${EnvConfig.backendUrl}/api/foods'),
@@ -43,12 +52,11 @@ class SupabaseService {
       }
 
       final List<dynamic> list = jsonDecode(response.body);
-      final List<FoodModel> allFoods = list.map((json) => FoodModel.fromJson(json as Map<String, dynamic>)).toList();
-      
-      // Filter lokal untuk isConsumed agar terhindar dari sisa item selesai
-      return allFoods.where((food) => !food.isConsumed).toList();
+      return list
+          .map((json) => FoodModel.fromJson(json as Map<String, dynamic>))
+          .toList();
     } catch (e) {
-      debugPrint('Error getFoods: $e');
+      debugPrint('Error getAllFoods: $e');
       throw Exception('Gagal mengambil daftar makanan dari Backend: $e');
     }
   }
@@ -141,6 +149,52 @@ class SupabaseService {
     }
   }
 
+  /// Memperbarui profil pengguna (full_name dan/atau avatar_url) melalui backend.
+  Future<Map<String, dynamic>> updateProfile({
+    required String fullName,
+    String? avatarUrl,
+  }) async {
+    try {
+      final body = <String, dynamic>{'full_name': fullName};
+      if (avatarUrl != null) body['avatar_url'] = avatarUrl;
+
+      final response = await http.put(
+        Uri.parse('${EnvConfig.backendUrl}/api/profile'),
+        headers: _headers,
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode != 200) {
+        final err = jsonDecode(response.body);
+        throw Exception(err['error'] ?? 'Gagal memperbarui profil.');
+      }
+
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('Error updateProfile: $e');
+      throw Exception('Gagal memperbarui profil: $e');
+    }
+  }
+
+  /// Mengganti password pengguna melalui backend.
+  Future<void> changePassword(String newPassword) async {
+    try {
+      final response = await http.put(
+        Uri.parse('${EnvConfig.backendUrl}/api/profile/password'),
+        headers: _headers,
+        body: jsonEncode({'new_password': newPassword}),
+      );
+
+      if (response.statusCode != 200) {
+        final err = jsonDecode(response.body);
+        throw Exception(err['error'] ?? 'Gagal mengganti password.');
+      }
+    } catch (e) {
+      debugPrint('Error changePassword: $e');
+      throw Exception('Gagal mengganti password: $e');
+    }
+  }
+
   /// Mengunggah gambar makanan melalui API backend.
   Future<String?> uploadImage(String filePath, String fileName) async {
     try {
@@ -156,14 +210,9 @@ class SupabaseService {
         'POST',
         Uri.parse('${EnvConfig.backendUrl}/api/upload'),
       );
-      
+
       request.headers['Authorization'] = 'Bearer $token';
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'image',
-          filePath,
-        ),
-      );
+      request.files.add(await http.MultipartFile.fromPath('image', filePath));
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
