@@ -1,4 +1,6 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
@@ -320,22 +322,7 @@ app.delete("/api/foods/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// 8. Get Storage Locations
-app.get("/api/storage-locations", async (req, res) => {
-  try {
-    const { data, error } = await mainSupabase
-      .from("storage_locations")
-      .select("*");
 
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
-
-    return res.status(200).json(data);
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-});
 
 // 9. Upload Image
 app.post(
